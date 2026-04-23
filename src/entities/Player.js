@@ -1,5 +1,5 @@
 // ============================================================
-// WARDENFALL — Player.js
+// WAYFINDER — Player.js
 // Pure logic. Reads state + input snapshot. Mutates state only.
 // No canvas, no DOM, no Input import.
 // ============================================================

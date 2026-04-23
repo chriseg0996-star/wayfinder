@@ -1,5 +1,5 @@
 // ============================================================
-// WARDENFALL — Enemy.js
+// WAYFINDER — Enemy.js
 // Slime AI: patrol → chase → telegraph → attack → hurt → patrol
 // Pure logic. No canvas, no DOM.
 // ============================================================

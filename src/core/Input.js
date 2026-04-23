@@ -1,5 +1,5 @@
 // ============================================================
-// WARDENFALL — Input.js
+// WAYFINDER — Input.js
 // Raw key state + snapshot pattern.
 // Entities never read Input directly — only the snapshot.
 // Phase 2: replace snapshot() with server-received input packet.

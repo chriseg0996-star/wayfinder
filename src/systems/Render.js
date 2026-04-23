@@ -1,5 +1,5 @@
 // ============================================================
-// WARDENFALL — Render.js
+// WAYFINDER — Render.js
 // Reads GameState. Never mutates it. Placeholder visuals only.
 // ============================================================
 

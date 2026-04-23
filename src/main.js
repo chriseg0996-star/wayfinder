@@ -1,5 +1,5 @@
 // ============================================================
-// WARDENFALL — main.js
+// WAYFINDER — main.js
 // Entry point. Wires canvas + state + game loop.
 // ============================================================
 
@@ -14,7 +14,7 @@ game.start();
 
 // Controls hint on console
 console.log(`
-WARDENFALL — Controls
+WAYFINDER — Controls
 ─────────────────────
 Move:    A / D  or  ← →
 Jump:    W / Space / ↑

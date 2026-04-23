@@ -1,5 +1,5 @@
 // ============================================================
-// WARDENFALL — Camera.js
+// WAYFINDER — Camera.js
 // Smooth follow with lead + vertical deadzone.
 // ============================================================
 

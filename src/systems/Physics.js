@@ -1,5 +1,5 @@
 // ============================================================
-// WARDENFALL — Physics.js
+// WAYFINDER — Physics.js
 // AABB collision. Applies gravity. Resolves platform overlap.
 // ============================================================
 

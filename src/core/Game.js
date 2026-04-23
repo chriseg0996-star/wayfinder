@@ -1,5 +1,5 @@
 // ============================================================
-// WARDENFALL — Game.js
+// WAYFINDER — Game.js
 // Fixed timestep accumulator loop.
 // Orchestrates: input → update → render.
 // Never contains gameplay logic.

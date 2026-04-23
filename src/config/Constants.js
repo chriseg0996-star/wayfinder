@@ -1,5 +1,5 @@
 // ============================================================
-// WARDENFALL — Constants.js
+// WAYFINDER — Constants.js
 // ALL tunable gameplay values live here. Never hardcode elsewhere.
 // ============================================================
 

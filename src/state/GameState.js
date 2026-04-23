@@ -1,5 +1,5 @@
 // ============================================================
-// WARDENFALL — GameState.js
+// WAYFINDER — GameState.js
 // Plain serializable object. No methods. No DOM refs. No canvas.
 // This object can be sent over the wire in Phase 2 unchanged.
 // ============================================================
