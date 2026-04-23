@@ -40,6 +40,34 @@ export function drawPlayer(ctx, state) {
     ctx.fillRect(p.x - 4, p.y - 4, p.w + 8, p.h + 8);
   }
 
+  if (p.abilityGuardTimer > 0) {
+    const t = Math.max(0, Math.min(1, p.abilityGuardTimer / 0.32));
+    const r = Math.round(22 + (1 - t) * 22);
+    ctx.save();
+    ctx.globalAlpha = 0.35 + t * 0.35;
+    ctx.strokeStyle = '#64b5f6';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(p.x + p.w * 0.5, p.y + p.h * 0.5, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+  if (p.abilityDamageFxTimer > 0) {
+    const t = Math.max(0, Math.min(1, p.abilityDamageFxTimer / 0.14));
+    const w = 84;
+    const h = 52;
+    const hx = p.facingRight ? p.x + p.w : p.x - w;
+    const hy = p.y + p.h * 0.5 - h * 0.5;
+    ctx.save();
+    ctx.globalAlpha = 0.25 + t * 0.45;
+    ctx.fillStyle = '#ffcc80';
+    ctx.fillRect(hx, hy, w, h);
+    ctx.strokeStyle = '#ff8f00';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(hx + 0.5, hy + 0.5, w - 1, h - 1);
+    ctx.restore();
+  }
+
   drawGroundShadow(
     ctx,
     p.x + p.w * 0.5,
@@ -131,6 +159,21 @@ function drawPlayerAttackGizmos(ctx, p) {
  */
 export function drawEnemies(ctx, state) {
   for (const e of state.enemies) {
+    if (e.type === 'projectile') {
+      if (!e.alive) continue;
+      drawProjectile(ctx, e);
+      continue;
+    }
+    if (e.type === 'ranged') {
+      if (!e.alive) continue;
+      drawRangedEnemy(ctx, e);
+      continue;
+    }
+    if (e.type === 'heavy') {
+      if (!e.alive) continue;
+      drawHeavyEnemy(ctx, e);
+      continue;
+    }
     if (!shouldDrawSlime(e, state)) {
       continue;
     }
@@ -228,6 +271,70 @@ export function drawEnemies(ctx, state) {
       drawEnemyHPBar(ctx, e);
     }
   }
+}
+
+function drawRangedEnemy(ctx, e) {
+  const body = e.state === 'telegraph' ? '#ffd166' : e.state === 'hurt' ? '#ef9a9a' : '#b39ddb';
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.beginPath();
+  ctx.ellipse(e.x + e.w * 0.5, e.y + e.h + 2, e.w * 0.48, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = body;
+  ctx.fillRect(e.x, e.y, e.w, e.h);
+  ctx.strokeStyle = 'rgba(8,10,16,0.9)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(e.x - 0.5, e.y - 0.5, e.w + 1, e.h + 1);
+  const eyeX = e.facingRight ? e.x + e.w - 9 : e.x + 3;
+  ctx.fillStyle = '#101318';
+  ctx.fillRect(eyeX, e.y + 8, 6, 5);
+  if (e.alive) drawEnemyHPBar(ctx, e);
+}
+
+function drawProjectile(ctx, e) {
+  ctx.fillStyle = '#ffcc80';
+  ctx.fillRect(e.x, e.y, e.w, e.h);
+  ctx.strokeStyle = '#5d4037';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(e.x + 0.5, e.y + 0.5, e.w - 1, e.h - 1);
+}
+
+function drawHeavyEnemy(ctx, e) {
+  const body = e.state === 'telegraph'
+    ? '#ffb74d'
+    : e.state === 'charge'
+      ? '#ef5350'
+      : e.state === 'recover'
+        ? '#8d6e63'
+        : e.state === 'hurt'
+          ? '#ef9a9a'
+          : '#a1887f';
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.beginPath();
+  ctx.ellipse(e.x + e.w * 0.5, e.y + e.h + 2, e.w * 0.52, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = body;
+  ctx.fillRect(e.x, e.y, e.w, e.h);
+  ctx.strokeStyle = 'rgba(16,10,10,0.95)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(e.x - 0.5, e.y - 0.5, e.w + 1, e.h + 1);
+
+  // Simple "horned helm" silhouette for quick archetype readability.
+  ctx.fillStyle = '#5d4037';
+  ctx.fillRect(e.x + 6, e.y - 6, e.w - 12, 6);
+  ctx.fillRect(e.x + 2, e.y - 4, 4, 4);
+  ctx.fillRect(e.x + e.w - 6, e.y - 4, 4, 4);
+
+  const eyeX = e.facingRight ? e.x + e.w - 11 : e.x + 4;
+  ctx.fillStyle = '#101318';
+  ctx.fillRect(eyeX, e.y + 12, 7, 6);
+
+  if (e.state === 'telegraph') {
+    ctx.strokeStyle = '#ff9800';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(e.x - 5, e.y - 5, e.w + 10, e.h + 10);
+  }
+  drawEnemyHPBar(ctx, e);
 }
 
 /**

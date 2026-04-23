@@ -89,6 +89,30 @@ export const ATTACK_RANGE_H      = 36;
 // After an attack *fully ends* (idle), min time before starting a new combo (anti-mash)
 export const ATTACK_MIN_INTERVAL  = 0.14;  // seconds
 export const HITSTOP_DURATION    = 0.058; // global freeze; tune for “impact”
+export const SHAKE_MAX_OFFSET    = 5;     // px max camera shake offset (reduced)
+export const SHAKE_DECAY         = 20;    // shake power decay / second (faster settle)
+export const SHAKE_POWER_LIGHT   = 0.30;  // light hit
+export const SHAKE_POWER_STRONG  = 0.55;  // heavy hit / ability impact
+export const SHAKE_POWER_KILL    = 0.75;  // kill confirmation pop
+export const HIT_VFX_LIFE        = 0.12;  // seconds per impact burst
+export const HIT_VFX_MAX         = 24;    // safety cap for transient queue
+
+// --- Player abilities (simple cooldown kit) ---
+// 1) Mobility: Burst Step
+export const ABILITY_MOVE_CD      = 3.4;
+export const ABILITY_MOVE_DUR     = 0.16;
+export const ABILITY_MOVE_SPEED   = 740;
+export const ABILITY_MOVE_IFRAMES = 0.14;
+// 2) Damage: Arc Burst
+export const ABILITY_DAMAGE_CD    = 4.6;
+export const ABILITY_DAMAGE_DAMAGE= 16;
+export const ABILITY_DAMAGE_W     = 84;
+export const ABILITY_DAMAGE_H     = 52;
+// 3) Control/Defensive: Guard Pulse
+export const ABILITY_GUARD_CD     = 6.0;
+export const ABILITY_GUARD_DUR    = 0.32;
+export const ABILITY_GUARD_RADIUS = 74;
+export const ABILITY_GUARD_KB     = 360;
 
 // Vertical pop on slimes from player hits (separate from horizontal KB)
 export const ENEMY_ON_HIT_KB_Y    = -200;
@@ -132,6 +156,48 @@ export const SLIME_HURT_DUR        = 0.28; // stunned after player hit
 export const SLIME_PATROL_TURN     = 2.5;   // seconds before reversing patrol
 // Resume chasing after this far (hysteresis vs SLIME_CHASE_RANGE)
 export const SLIME_LOSE_CHASE_MULT = 1.38;
+
+// --- Enemy — ranged (simple keep-distance + telegraph + projectile) ---
+export const RANGED_W               = 24;
+export const RANGED_H               = 40;
+export const RANGED_MAX_HP          = 20;
+export const RANGED_AGGRO_RANGE     = 340;
+export const RANGED_KEEP_MIN        = 130;
+export const RANGED_KEEP_MAX        = 210;
+export const RANGED_MOVE_SPEED      = 88;
+export const RANGED_TELEGRAPH_DUR   = 0.30;
+export const RANGED_SHOT_COOLDOWN   = 1.15;
+export const RANGED_PROJECTILE_W    = 12;
+export const RANGED_PROJECTILE_H    = 8;
+export const RANGED_PROJECTILE_SPEED= 300;
+export const RANGED_PROJECTILE_LIFE = 2.2;
+export const RANGED_PROJECTILE_DAMAGE = 7;
+
+// --- Enemy — heavy charger (commits, then punishable) ---
+export const HEAVY_W                = 40;
+export const HEAVY_H                = 52;
+export const HEAVY_MAX_HP           = 72;
+export const HEAVY_AGGRO_RANGE      = 300;
+export const HEAVY_MOVE_SPEED       = 68;
+export const HEAVY_TRIGGER_RANGE    = 110;
+export const HEAVY_TELEGRAPH_DUR    = 0.45;
+export const HEAVY_CHARGE_SPEED     = 430;
+export const HEAVY_CHARGE_DUR       = 0.34;
+export const HEAVY_RECOVER_DUR      = 0.65;
+export const HEAVY_COOLDOWN         = 1.35;
+export const HEAVY_DAMAGE           = 18;
+export const HEAVY_KNOCKBACK        = 320;
+export const HEAVY_KNOCKUP          = -220;
+
+// --- Encounter micro-rules (anti-unfair overlap, no new framework) ---
+export const ENCOUNTER_ARCHER_TELEGRAPH_MAX = 2;
+export const ENCOUNTER_ARCHER_DIRECTLINE_MAX = 2;
+export const ENCOUNTER_BRUTE_ATTACK_MAX_BY_ZONE = {
+  forest: 1,
+  ruins: 2,
+  cave: 2,
+};
+export const ENCOUNTER_BRUTE_TELEGRAPH_GAP_SEC = 0.6;
 
 // --- Slime: AI FSM `e.state` (Enemy.js) → animation clip (SLIME_ANIM) =====================
 // getSlimeAnimKey (render/animKeys.js) + resolveSlimeTextureRect (render/animClips.js) + entityRender.

@@ -18,12 +18,15 @@ const WIRE_OMIT_PLAYER = new Set([
   'dodgeTimer', 'dodgeCooldown', 'dodgeDir', 'iframeTimer', 'dodgeBuffer',
   'comboIndex', 'attackTimer', 'attackActive', 'comboWindow', 'attackInputCooldown',
   'hitstopTimer', 'hurtTimer', 'state',
+  'abilityMoveCd', 'abilityMoveTimer', 'abilityDamageCd', 'abilityDamageFxTimer',
+  'abilityGuardCd', 'abilityGuardTimer',
 ]);
 
 /** AI / combat timing / anim bookkeeping — not on wire. */
 const WIRE_OMIT_ENEMY = new Set([
   'state', 'patrolDir', 'patrolTimer', 'chaseTimer', 'telegraphTimer', 'attackTimer',
-  'hurtTimer', 'hitstopTimer', 'deathStartTick', 'grounded',
+  'hurtTimer', 'hitstopTimer', 'deathStartTick', 'grounded', 'shootCooldown', 'life',
+  'chargeTimer', 'recoverTimer', 'attackCooldown', 'chargeDir', 'hitThisCharge',
 ]);
 
 /**

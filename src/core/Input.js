@@ -26,6 +26,13 @@ export function snapshot() {
     dodge:   !!(keys['KeyX']       || keys['KeyK']),
     restart:  !!(keys['KeyR']),
     nextZone: !!(keys['KeyN']),
+    skill1:   !!(keys['Digit1']),
+    skill2:   !!(keys['Digit2']),
+    skill3:   !!(keys['Digit3']),
+    inventory: !!(keys['KeyI']),
+    character: !!(keys['KeyC']),
+    map:       !!(keys['KeyM']),
+    settings:  !!(keys['Escape']),
     // F3 is OS/browser-dependent; Backquote is a reliable fallback
     debug:   !!(keys['F3']        || keys['Backquote']),
   };
@@ -41,6 +48,13 @@ export function snapshotWithEdge() {
     dodgePressed:    cur.dodge    && !_prev.dodge,
     restartPressed:  cur.restart  && !_prev.restart,
     nextZonePressed: cur.nextZone && !_prev.nextZone,
+    skill1Pressed:   cur.skill1   && !_prev.skill1,
+    skill2Pressed:   cur.skill2   && !_prev.skill2,
+    skill3Pressed:   cur.skill3   && !_prev.skill3,
+    inventoryPressed: cur.inventory && !_prev.inventory,
+    characterPressed: cur.character && !_prev.character,
+    mapPressed:       cur.map && !_prev.map,
+    settingsPressed:  cur.settings && !_prev.settings,
     debugPressed:    cur.debug    && !_prev.debug,
   };
   _prev = cur;

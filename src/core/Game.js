@@ -9,10 +9,12 @@ import { FIXED_DT, CANVAS_W, CANVAS_H } from '../config/Constants.js';
 import { snapshotWithEdge }              from './Input.js';
 import { updateCamera }                  from './Camera.js';
 import { clearHitFlags }   from '../systems/Combat.js';
+import { updateCombatFeedback } from '../systems/CombatFeedback.js';
 import { updatePlayer }    from '../entities/Player.js';
 import { updateEnemies }                 from '../entities/Enemy.js';
+import { flushAudioHooks } from '../systems/AudioHooks.js';
 import { render }                        from '../systems/Render.js';
-import { renderUI }                      from '../systems/UI.js';
+import { renderUI, updateUIState }       from '../systems/UI.js';
 import { resetRun, loadNextZoneIfAny }  from '../state/GameState.js';
 
 export class Game {
@@ -78,6 +80,7 @@ export class Game {
 
   _update(input) {
     const state = this.state;
+    updateUIState(state, input);
 
     if (state.roundState !== 'playing') {
       if (input.debugPressed) state.debug = !state.debug; // F3 / `
@@ -89,6 +92,7 @@ export class Game {
     }
 
     state.tick++;
+    updateCombatFeedback(state);
 
     if (input.debugPressed) state.debug = !state.debug; // F3 (see Input.js: Backquote if F3 unavailable)
 
@@ -102,7 +106,7 @@ export class Game {
 
     if (state.player.state === 'dead' || state.player.hp <= 0) {
       state.roundState = 'lose';
-    } else if (state.enemies.every(e => !e.alive)) {
+    } else if (state.enemies.filter(e => e.type !== 'projectile').every(e => !e.alive)) {
       state.roundState = 'win';
     }
   }
@@ -110,5 +114,6 @@ export class Game {
   _render(alpha) {
     render(this.ctx, this.state, alpha);
     renderUI(this.ctx, this.state, this._fps);
+    flushAudioHooks(this.state);
   }
 }

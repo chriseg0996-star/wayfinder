@@ -50,6 +50,9 @@ Move:    A / D  or  ← →
 Jump:    W / Space / ↑
 Attack:  J / Z
 Dodge:   K / X
+Skill 1: 1 (Burst Step)
+Skill 2: 2 (Arc Burst)
+Skill 3: 3 (Guard Pulse)
 Next:    N  (after win — go to next area, if any)
 Restart: R  (new run from zone 1; after loss)
 Debug:   F3  or  \`  (backtick)

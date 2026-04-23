@@ -14,6 +14,8 @@
 import {
   PLAYER_MAX_HP, PLAYER_W, PLAYER_H,
   SLIME_MAX_HP, SLIME_W, SLIME_H,
+  RANGED_MAX_HP, RANGED_W, RANGED_H,
+  HEAVY_MAX_HP, HEAVY_W, HEAVY_H,
   CANVAS_W, CANVAS_H,
 } from '../config/Constants.js';
 import { getZoneConfig, getNextZoneId, ZONE_ORDER } from '../data/zones.js';
@@ -53,6 +55,12 @@ function defaultPlayer() {
     hitstopTimer: 0,
 
     hurtTimer: 0,
+    abilityMoveCd: 0,
+    abilityMoveTimer: 0,
+    abilityDamageCd: 0,
+    abilityDamageFxTimer: 0,
+    abilityGuardCd: 0,
+    abilityGuardTimer: 0,
 
     xp: 0,
     level: 1,
@@ -78,6 +86,10 @@ export function createGameState() {
     levelH:        CANVAS_H,
     parallaxTuning: null,
     debug:         false,
+    _combatEvents: [],
+    _audioQueue:   [],
+    _hitVfx:       [],
+    _shake:        { x: 0, y: 0, power: 0 },
   };
   loadZone(state, ZONE_ORDER[0]);
   return state;
@@ -97,9 +109,20 @@ export function loadZone(state, id) {
   state.platforms     = z.platforms.map(plat => ({ ...plat }));
   state.levelW        = z.levelW;
   state.levelH        = z.levelH;
-  state.enemies       = z.slimeSpawns.map(([x, y]) => makeSlime(x, y));
+  const slimes = z.slimeSpawns.map(([x, y]) => makeSlime(x, y));
+  const ranged = (z.rangedSpawns ?? []).map(([x, y]) => makeRanged(x, y));
+  const heavy = (z.heavySpawns ?? []).map(([x, y]) => makeHeavy(x, y));
+  const nextEnemies = [...slimes, ...ranged, ...heavy];
+  // Anti-softlock fallback: ensure each zone has at least one enemy if config is accidentally empty.
+  state.enemies       = nextEnemies.length > 0 ? nextEnemies : [makeRanged(z.spawn.x + 220, z.spawn.y)];
   state.roundState    = 'playing';
   state.hitstop       = 0;
+  // Transition safety: clear transient combat feedback buffers between zones.
+  state._combatEvents = [];
+  state._audioQueue   = [];
+  state._hitVfx       = [];
+  state._shake        = { x: 0, y: 0, power: 0 };
+  state._lastBruteTelegraphTick = -999999;
 
   p.x  = z.spawn.x;
   p.y  = z.spawn.y;
@@ -107,6 +130,12 @@ export function loadZone(state, id) {
   p.vy = 0;
   p.state = 'idle';
   p.hurtTimer = 0;
+  p.abilityMoveCd = 0;
+  p.abilityMoveTimer = 0;
+  p.abilityDamageCd = 0;
+  p.abilityDamageFxTimer = 0;
+  p.abilityGuardCd = 0;
+  p.abilityGuardTimer = 0;
   p.grounded  = false;
   p.iframeTimer = 0;
   p.comboIndex = 0;
@@ -114,6 +143,10 @@ export function loadZone(state, id) {
   p.attackTimer  = 0;
   p.dodgeTimer   = 0;
   p.dodgeCooldown = 0;
+  p.dodgeBuffer = 0;
+  p.attackInputCooldown = 0;
+  p.jumpBuffer = 0;
+  p.coyoteTimer = 0;
   p.hp = p.maxHp;
   state.camera.x = 0;
   state.camera.y = 0;
@@ -177,5 +210,62 @@ function makeSlime(x, y) {
 
     /** Render-only: offset sim tick for loop anims so spawns are not frame-locked (animClips). */
     _animPhase: (Math.imul(x | 0, 17) ^ (y | 0) * 23) & 0xffff,
+  };
+}
+
+function makeRanged(x, y) {
+  return {
+    x,
+    y,
+    vx: 0,
+    vy: 0,
+    w: RANGED_W,
+    h: RANGED_H,
+    hp: RANGED_MAX_HP,
+    maxHp: RANGED_MAX_HP,
+    facingRight: false,
+    alive: true,
+    type: 'ranged',
+
+    state: 'idle',
+    patrolDir: 1,
+    patrolTimer: 0,
+    telegraphTimer: 0,
+    attackTimer: 0,
+    hurtTimer: 0,
+    grounded: false,
+    shootCooldown: 0,
+
+    deathStartTick: null,
+    _animPhase: (Math.imul(x | 0, 11) ^ (y | 0) * 7) & 0xffff,
+  };
+}
+
+function makeHeavy(x, y) {
+  return {
+    x,
+    y,
+    vx: 0,
+    vy: 0,
+    w: HEAVY_W,
+    h: HEAVY_H,
+    hp: HEAVY_MAX_HP,
+    maxHp: HEAVY_MAX_HP,
+    facingRight: false,
+    alive: true,
+    type: 'heavy',
+
+    state: 'idle',
+    hurtTimer: 0,
+    grounded: false,
+    telegraphTimer: 0,
+    chargeTimer: 0,
+    recoverTimer: 0,
+    attackCooldown: 0,
+    chargeDir: 1,
+    hitThisCharge: false,
+
+    deathStartTick: null,
+    _animPhase: (Math.imul(x | 0, 13) ^ (y | 0) * 19) & 0xffff,
   };
 }

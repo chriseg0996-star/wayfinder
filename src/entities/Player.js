@@ -34,10 +34,14 @@ import {
   ATTACK_STARTUP, ATTACK_ACTIVE, ATTACK_RECOVERY,
   ATTACK_MIN_INTERVAL,
   PLAYER_LOCO_RUN_VX,
+  ABILITY_MOVE_CD, ABILITY_MOVE_DUR, ABILITY_MOVE_SPEED, ABILITY_MOVE_IFRAMES,
+  ABILITY_DAMAGE_CD, ABILITY_DAMAGE_DAMAGE, ABILITY_DAMAGE_W, ABILITY_DAMAGE_H,
+  ABILITY_GUARD_CD, ABILITY_GUARD_DUR, ABILITY_GUARD_RADIUS, ABILITY_GUARD_KB,
   FIXED_DT,
 } from '../config/Constants.js';
 
-import { processPlayerMeleeHits } from '../systems/Combat.js';
+import { processPlayerMeleeHits, processAbilityDamageBurst } from '../systems/Combat.js';
+import { emitAttackSwing } from '../systems/CombatFeedback.js';
 import { getPlayerMoveSpeedScale }   from '../systems/Progression.js';
 import { integrateEntity, clampToLevel } from '../systems/Physics.js';
 
@@ -47,7 +51,6 @@ export function updatePlayer(state, input) {
 
   // Global hitstop — freeze everything
   if (state.hitstop > 0) {
-    state.hitstop -= dt;
     return;
   }
 
@@ -58,6 +61,12 @@ export function updatePlayer(state, input) {
   if (p.comboWindow   > 0) p.comboWindow   -= dt;
   else if (p.state !== 'attack') p.comboIndex = 0;
   if (p.attackInputCooldown > 0) p.attackInputCooldown -= dt;
+  if (p.abilityMoveCd > 0) p.abilityMoveCd -= dt;
+  if (p.abilityMoveTimer > 0) p.abilityMoveTimer -= dt;
+  if (p.abilityDamageCd > 0) p.abilityDamageCd -= dt;
+  if (p.abilityDamageFxTimer > 0) p.abilityDamageFxTimer -= dt;
+  if (p.abilityGuardCd > 0) p.abilityGuardCd -= dt;
+  if (p.abilityGuardTimer > 0) p.abilityGuardTimer -= dt;
 
   // Jump buffer
   if (input.jumpPressed) p.jumpBuffer = JUMP_BUFFER_TIME;
@@ -84,6 +93,15 @@ export function updatePlayer(state, input) {
   // --- Hurt ---
   if (p.state === 'hurt') {
     if (p.hurtTimer <= 0) p.state = 'idle';
+    playerIntegrate(p, state);
+    clampToLevel(p, state.levelW, state.levelH);
+    return;
+  }
+
+  // Ability 1 — Mobility (Burst Step): fast committed burst.
+  if (p.abilityMoveTimer > 0) {
+    p.state = 'dodge';
+    p.vx = p.dodgeDir * ABILITY_MOVE_SPEED;
     playerIntegrate(p, state);
     clampToLevel(p, state.levelW, state.levelH);
     return;
@@ -157,6 +175,32 @@ export function updatePlayer(state, input) {
     startAttack(p, state);
     playerIntegrate(p, state);
     clampToLevel(p, state.levelW, state.levelH);
+    return;
+  }
+
+  // Abilities (simple priority: mobility > damage > guard)
+  if (input.skill1Pressed && p.abilityMoveCd <= 0 && p.state !== 'attack') {
+    p.abilityMoveCd = ABILITY_MOVE_CD;
+    p.abilityMoveTimer = ABILITY_MOVE_DUR;
+    p.iframeTimer = Math.max(p.iframeTimer, ABILITY_MOVE_IFRAMES);
+    p.dodgeDir = p.facingRight ? 1 : -1;
+    if (input.left) p.dodgeDir = -1;
+    if (input.right) p.dodgeDir = 1;
+    p.state = 'dodge';
+    return;
+  }
+  if (input.skill2Pressed && p.abilityDamageCd <= 0 && p.state !== 'attack') {
+    p.abilityDamageCd = ABILITY_DAMAGE_CD;
+    p.abilityDamageFxTimer = 0.14;
+    processAbilityDamageBurst(state, p, ABILITY_DAMAGE_W, ABILITY_DAMAGE_H, ABILITY_DAMAGE_DAMAGE);
+    emitAttackSwing(state, 'player');
+    return;
+  }
+  if (input.skill3Pressed && p.abilityGuardCd <= 0 && p.state !== 'attack') {
+    p.abilityGuardCd = ABILITY_GUARD_CD;
+    p.abilityGuardTimer = ABILITY_GUARD_DUR;
+    p.iframeTimer = Math.max(p.iframeTimer, ABILITY_GUARD_DUR);
+    pulseGuardControl(state, p);
     return;
   }
 
@@ -272,4 +316,26 @@ function startAttack(p, state) {
   p.attackActive = false;
   p.state        = 'attack';
   p.vx           = 0;
+  emitAttackSwing(state, 'player');
+}
+
+function pulseGuardControl(state, p) {
+  for (const e of state.enemies) {
+    if (!e.alive || e.type === 'projectile') continue;
+    const cx = e.x + e.w * 0.5;
+    const cy = e.y + e.h * 0.5;
+    const px = p.x + p.w * 0.5;
+    const py = p.y + p.h * 0.5;
+    const dx = cx - px;
+    const dy = cy - py;
+    const d2 = dx * dx + dy * dy;
+    if (d2 > ABILITY_GUARD_RADIUS * ABILITY_GUARD_RADIUS) continue;
+    const dir = dx >= 0 ? 1 : -1;
+    e.vx = dir * ABILITY_GUARD_KB;
+    e.vy = Math.min(e.vy, -180);
+    if (e.state !== 'dead') {
+      e.state = 'hurt';
+      e.hurtTimer = Math.max(e.hurtTimer ?? 0, 0.18);
+    }
+  }
 }

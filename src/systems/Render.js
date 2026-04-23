@@ -48,6 +48,9 @@ export function loadWorldTiles() {
 
 export function render(ctx, state, alpha) {
   const cam = state.camera;
+  const shakeX = state._shake?.x ?? 0;
+  const shakeY = state._shake?.y ?? 0;
+  const renderCam = { x: cam.x + shakeX, y: cam.y + shakeY };
 
   ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
@@ -55,18 +58,42 @@ export function render(ctx, state, alpha) {
   drawScreenBase(ctx, state);
 
   // LAYER: 3x world parallax (far / mid / near) — see artConfig.PARALLAX_LAYERS
-  drawParallaxStack(ctx, state, cam);
+  drawParallaxStack(ctx, state, renderCam);
 
   // LAYER: gameplay (full camera scroll)
   ctx.save();
-  ctx.translate(-Math.round(cam.x), -Math.round(cam.y));
+  ctx.translate(-Math.round(renderCam.x), -Math.round(renderCam.y));
 
   drawPlatforms(ctx, state);
+  drawHitImpactVfx(ctx, state);
   drawEnemies(ctx, state);
   drawPlayer(ctx, state);
 
   ctx.restore();
   void alpha;
+}
+
+function drawHitImpactVfx(ctx, state) {
+  const arr = state._hitVfx;
+  if (!Array.isArray(arr) || arr.length === 0) return;
+  for (const v of arr) {
+    const t = Math.max(0, Math.min(1, v.life / v.maxLife));
+    const r = Math.round(6 + (1 - t) * 14);
+    ctx.save();
+    ctx.globalAlpha = t * 0.9;
+    ctx.strokeStyle = '#ffe082';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(v.x, v.y, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = t * 0.7;
+    ctx.fillStyle = '#ff7043';
+    ctx.fillRect(v.x - 1, v.y - (r + 3), 2, 6);
+    ctx.fillRect(v.x - 1, v.y + (r - 3), 2, 6);
+    ctx.fillRect(v.x - (r + 3), v.y - 1, 6, 2);
+    ctx.fillRect(v.x + (r - 3), v.y - 1, 6, 2);
+    ctx.restore();
+  }
 }
 
 function drawPlatforms(ctx, state) {

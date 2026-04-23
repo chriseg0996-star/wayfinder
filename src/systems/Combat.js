@@ -4,15 +4,16 @@
 // ============================================================
 
 import {
-  HITSTOP_DURATION,
   ATTACK_KNOCKBACK, ATTACK_DAMAGE,
   ATTACK_RANGE_W, ATTACK_RANGE_H,
   SLIME_HURT_DUR,
   PLAYER_HURT_DUR, PLAYER_HURT_IFRAMES,
   SLIME_ATTACK_DAMAGE, SLIME_KNOCKBACK, SLIME_KNOCKUP,
   ENEMY_ON_HIT_KB_Y, SLIME_MELEE_REACH, SLIME_MELEE_FEET_Y_TOL, SLIME_MELEE_Y_PAD,
+  SHAKE_POWER_LIGHT, SHAKE_POWER_STRONG, SHAKE_POWER_KILL,
 } from '../config/Constants.js';
 import { getPlayerDamageMultiplier, awardSlimeKillXp } from './Progression.js';
+import { emitMeleeImpact, emitEnemyHurt } from './CombatFeedback.js';
 
 /**
  * Single entry for all damage. Call from combat resolution only.
@@ -65,7 +66,16 @@ function applyDamageToEnemy(state, e, {
     e.deathStartTick = state.tick;
     if (wasAlive) awardSlimeKillXp(state);
   }
-  if (applyHitstop) state.hitstop = HITSTOP_DURATION;
+  emitEnemyHurt(state, e.x + e.w * 0.5, e.y + e.h * 0.5);
+  if (applyHitstop) {
+    const wasKill = !e.alive;
+    const shakePower = wasKill
+      ? SHAKE_POWER_KILL
+      : amount >= 14
+        ? SHAKE_POWER_STRONG
+        : SHAKE_POWER_LIGHT;
+    emitMeleeImpact(state, e.x + e.w * 0.5, e.y + e.h * 0.5, shakePower);
+  }
   return true;
 }
 
@@ -81,7 +91,10 @@ function applyDamageToPlayer(state, p, {
   p.state = 'hurt';
   p.hurtTimer = hurtDuration;
   p.iframeTimer = iframes;
-  if (applyHitstop) state.hitstop = HITSTOP_DURATION;
+  if (applyHitstop) {
+    const shakePower = amount >= 14 ? SHAKE_POWER_STRONG : SHAKE_POWER_LIGHT;
+    emitMeleeImpact(state, p.x + p.w * 0.5, p.y + p.h * 0.5, shakePower);
+  }
   return true;
 }
 
@@ -118,6 +131,7 @@ export function processPlayerMeleeHits(state, p) {
 
   for (const e of state.enemies) {
     if (!e.alive) continue;
+    if (e.type === 'projectile') continue;
     if (e._hitThisSwing) continue;
     if (!rectsOverlap(hitbox, e)) continue;
 
@@ -177,4 +191,37 @@ export function processSlimeMeleeHit(state, slime, player, _distX) {
 // Clear per-swing flags (call once per tick, before player update)
 export function clearHitFlags(state) {
   for (const e of state.enemies) e._hitThisSwing = false;
+}
+
+/**
+ * Ability 2: front-loaded burst damage area.
+ * @param {object} state
+ * @param {object} p
+ * @param {number} w
+ * @param {number} h
+ * @param {number} damage
+ */
+export function processAbilityDamageBurst(state, p, w, h, damage) {
+  const hitbox = {
+    x: p.facingRight ? p.x + p.w : p.x - w,
+    y: p.y + p.h * 0.5 - h * 0.5,
+    w,
+    h,
+  };
+  const dir = p.facingRight ? 1 : -1;
+  for (const e of state.enemies) {
+    if (!e.alive) continue;
+    if (e.type === 'projectile') continue;
+    if (!rectsOverlap(hitbox, e)) continue;
+    applyDamage(state, {
+      victim: 'enemy',
+      ref: e,
+      sourceId: 'player_ability_damage',
+      amount: damage,
+      knockbackX: dir * 260,
+      knockbackY: ENEMY_ON_HIT_KB_Y,
+      hurtDuration: SLIME_HURT_DUR,
+      applyHitstop: true,
+    });
+  }
 }
