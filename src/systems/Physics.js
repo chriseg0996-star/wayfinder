@@ -7,8 +7,9 @@ import { GRAVITY, MAX_FALL_SPEED, FIXED_DT } from '../config/Constants.js';
 
 // Integrate velocity for one entity against platform list
 export function integrateEntity(entity, platforms, dt) {
-  // Apply gravity
-  entity.vy += GRAVITY * dt;
+  // Apply gravity (player may set _gravityScale for rise/fall feel)
+  const gScale = typeof entity._gravityScale === 'number' ? entity._gravityScale : 1;
+  entity.vy += GRAVITY * gScale * dt;
   if (entity.vy > MAX_FALL_SPEED) entity.vy = MAX_FALL_SPEED;
 
   // Move X

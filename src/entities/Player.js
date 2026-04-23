@@ -6,15 +6,19 @@
 
 import {
   PLAYER_SPEED, AIR_CONTROL,
-  JUMP_FORCE, JUMP_CUT_FACTOR, COYOTE_TIME, JUMP_BUFFER_TIME,
-  DODGE_SPEED, DODGE_DURATION, DODGE_IFRAMES, DODGE_COOLDOWN,
+  PLAYER_GROUND_ACCEL, PLAYER_GROUND_TURN_MULT, PLAYER_GROUND_DECEL,
+  PLAYER_AIR_ACCEL, PLAYER_AIR_TURN_MULT, PLAYER_AIR_DRAG,
+  JUMP_FORCE, JUMP_CUT_MULTIPLIER, JUMP_RISE_GRAVITY_MULT, JUMP_FALL_GRAVITY_MULT,
+  COYOTE_TIME, JUMP_BUFFER_TIME,
+  DODGE_BUFFER_TIME, DODGE_SPEED, DODGE_DURATION, DODGE_IFRAMES, DODGE_COOLDOWN,
   COMBO_HITS, COMBO_WINDOW,
-  ATTACK_DURATION, ATTACK_ACTIVE, ATTACK_DAMAGE, ATTACK_KNOCKBACK,
-  ATTACK_RANGE_W, ATTACK_RANGE_H,
-  HITSTOP_DURATION,
+  ATTACK_STARTUP, ATTACK_ACTIVE, ATTACK_RECOVERY,
+  ATTACK_MIN_INTERVAL,
   FIXED_DT,
 } from '../config/Constants.js';
 
+import { processPlayerMeleeHits } from '../systems/Combat.js';
+import { getPlayerMoveSpeedScale }   from '../systems/Progression.js';
 import { integrateEntity, clampToLevel } from '../systems/Physics.js';
 
 export function updatePlayer(state, input) {
@@ -33,10 +37,15 @@ export function updatePlayer(state, input) {
   if (p.hurtTimer     > 0) p.hurtTimer     -= dt;
   if (p.comboWindow   > 0) p.comboWindow   -= dt;
   else if (p.state !== 'attack') p.comboIndex = 0;
+  if (p.attackInputCooldown > 0) p.attackInputCooldown -= dt;
 
   // Jump buffer
   if (input.jumpPressed) p.jumpBuffer = JUMP_BUFFER_TIME;
   else if (p.jumpBuffer > 0) p.jumpBuffer -= dt;
+
+  // Dodge buffer (responsive dodge off cooldown or after attack)
+  if (input.dodgePressed) p.dodgeBuffer = DODGE_BUFFER_TIME;
+  else if (p.dodgeBuffer > 0) p.dodgeBuffer -= dt;
 
   // Coyote time
   if (p.grounded) {
@@ -55,7 +64,7 @@ export function updatePlayer(state, input) {
   // --- Hurt ---
   if (p.state === 'hurt') {
     if (p.hurtTimer <= 0) p.state = 'idle';
-    integrateEntity(p, state.platforms, dt);
+    playerIntegrate(p, state);
     clampToLevel(p, state.levelW, state.levelH);
     return;
   }
@@ -68,21 +77,22 @@ export function updatePlayer(state, input) {
       p.state = 'idle';
       p.vx = 0;
     }
-    integrateEntity(p, state.platforms, dt);
+    playerIntegrate(p, state);
     clampToLevel(p, state.levelW, state.levelH);
     return;
   }
 
-  // Dodge input
-  if (input.dodgePressed && p.dodgeCooldown <= 0 && p.state !== 'attack') {
-    p.state      = 'dodge';
-    p.dodgeTimer = DODGE_DURATION;
-    p.iframeTimer= DODGE_IFRAMES;
+  // Dodge start (buffered: dodge may have been pressed during attack)
+  if (p.dodgeBuffer > 0 && p.dodgeCooldown <= 0 && p.state !== 'attack') {
+    p.dodgeBuffer   = 0;
+    p.state         = 'dodge';
+    p.dodgeTimer    = DODGE_DURATION;
+    p.iframeTimer   = DODGE_IFRAMES;
     p.dodgeCooldown = DODGE_COOLDOWN;
-    p.dodgeDir   = p.facingRight ? 1 : -1;
+    p.dodgeDir      = p.facingRight ? 1 : -1;
     if (input.left)  p.dodgeDir = -1;
-    if (input.right) p.dodgeDir =  1;
-    integrateEntity(p, state.platforms, dt);
+    if (input.right) p.dodgeDir = 1;
+    playerIntegrate(p, state);
     clampToLevel(p, state.levelW, state.levelH);
     return;
   }
@@ -92,19 +102,22 @@ export function updatePlayer(state, input) {
     p.attackTimer -= dt;
     p.vx = 0;
 
-    // Active window
-    const dur = ATTACK_DURATION[p.comboIndex - 1] || ATTACK_DURATION[0];
-    const act = ATTACK_ACTIVE[p.comboIndex - 1]   || ATTACK_ACTIVE[0];
-    p.attackActive = p.attackTimer > (dur - act);
+    const ci  = p.comboIndex - 1;
+    const su  = ATTACK_STARTUP[ci]  ?? ATTACK_STARTUP[0];
+    const act = ATTACK_ACTIVE[ci]  ?? ATTACK_ACTIVE[0];
+    const re  = ATTACK_RECOVERY[ci] ?? ATTACK_RECOVERY[0];
+    const tot = su + act + re;
+    const t   = tot - p.attackTimer;
+    p.attackActive = t >= su && t < su + act;
 
     if (p.attackActive) {
-      tryHitEnemies(p, state);
+      processPlayerMeleeHits(state, p);
     }
 
     // Chain next hit
     if (input.attackPressed && p.comboWindow > 0 && p.comboIndex < COMBO_HITS) {
       startAttack(p, state);
-      integrateEntity(p, state.platforms, dt);
+      playerIntegrate(p, state);
       clampToLevel(p, state.levelW, state.levelH);
       return;
     }
@@ -112,44 +125,44 @@ export function updatePlayer(state, input) {
     if (p.attackTimer <= 0) {
       p.attackActive = false;
       p.state = 'idle';
+      p.attackInputCooldown = ATTACK_MIN_INTERVAL;
     }
-    integrateEntity(p, state.platforms, dt);
+    playerIntegrate(p, state);
     clampToLevel(p, state.levelW, state.levelH);
     return;
   }
 
-  // Attack input
-  if (input.attackPressed && p.grounded) {
+  // Attack input (neutral) — respect recovery gap so player cannot machine-gun
+  if (input.attackPressed && p.grounded && p.attackInputCooldown <= 0) {
     startAttack(p, state);
-    integrateEntity(p, state.platforms, dt);
+    playerIntegrate(p, state);
     clampToLevel(p, state.levelW, state.levelH);
     return;
   }
 
-  // --- Horizontal movement ---
-  const speed = p.grounded ? PLAYER_SPEED : PLAYER_SPEED * AIR_CONTROL;
-  if (input.left) {
-    p.vx = -speed;
-    p.facingRight = false;
-  } else if (input.right) {
-    p.vx = speed;
-    p.facingRight = true;
-  } else {
-    p.vx = 0;
-  }
+  // --- Free movement: ground friction / air drag + acceleration ---
+  if (p.grounded) p.jumpVarActive = false;
+
+  applyPlayerHorizontal(p, input, dt);
+
+  // Facing (only when we intend horizontal movement; attack/dodge set separately)
+  if (input.left)  p.facingRight = false;
+  if (input.right) p.facingRight = true;
 
   // --- Jump ---
   const canJump = p.grounded || p.coyoteTimer > 0;
   if (p.jumpBuffer > 0 && canJump) {
-    p.vy = -JUMP_FORCE;
+    p.vy         = -JUMP_FORCE;
     p.jumpBuffer = 0;
     p.coyoteTimer = 0;
-    p.grounded = false;
+    p.grounded   = false;
+    p.jumpVarActive = true;
   }
 
-  // Variable jump height — cut on release
-  if (!input.jump && p.vy < 0) {
-    p.vy *= 1 - JUMP_CUT_FACTOR * (1 - Math.min(1, Math.abs(p.vy) / JUMP_FORCE));
+  // Variable hop: one cut on release, not every airborne frame
+  if (!input.jump && p.vy < 0 && p.jumpVarActive) {
+    p.vy           *= JUMP_CUT_MULTIPLIER;
+    p.jumpVarActive = false;
   }
 
   // --- State machine (visual state) ---
@@ -161,61 +174,70 @@ export function updatePlayer(state, input) {
     p.state = 'idle';
   }
 
-  integrateEntity(p, state.platforms, dt);
+  playerIntegrate(p, state);
   clampToLevel(p, state.levelW, state.levelH);
+}
+
+// --- Physics helpers (movement + jump; combat unchanged) ---
+
+function moveToward(current, target, maxDelta) {
+  if (current < target) return Math.min(current + maxDelta, target);
+  if (current > target) return Math.max(current - maxDelta, target);
+  return current;
+}
+
+function setPlayerGravityScale(p) {
+  p._gravityScale = 1;
+  if (p.grounded) return;
+  p._gravityScale = p.vy < 0 ? JUMP_RISE_GRAVITY_MULT : JUMP_FALL_GRAVITY_MULT;
+}
+
+function playerIntegrate(p, state) {
+  setPlayerGravityScale(p);
+  integrateEntity(p, state.platforms, FIXED_DT);
+}
+
+function applyPlayerHorizontal(p, input, dt) {
+  const move = getPlayerMoveSpeedScale(p);
+  const gMax = PLAYER_SPEED * move;
+  const aMax = PLAYER_SPEED * AIR_CONTROL * move;
+
+  let tVel;
+  if (input.left) tVel = -1;
+  else if (input.right) tVel = 1;
+  else tVel = 0;
+  tVel = tVel * (p.grounded ? gMax : aMax);
+
+  if (p.grounded) {
+    if (input.left || input.right) {
+      const turn = tVel !== 0 && p.vx !== 0 && (tVel > 0) !== (p.vx > 0);
+      const step = (turn ? PLAYER_GROUND_TURN_MULT : 1) * PLAYER_GROUND_ACCEL * dt;
+      p.vx = moveToward(p.vx, tVel, step);
+    } else {
+      p.vx = moveToward(p.vx, 0, PLAYER_GROUND_DECEL * dt);
+    }
+  } else {
+    if (input.left || input.right) {
+      const turn = tVel !== 0 && p.vx !== 0 && (tVel > 0) !== (p.vx > 0);
+      const step = (turn ? PLAYER_AIR_TURN_MULT : 1) * PLAYER_AIR_ACCEL * dt;
+      p.vx = moveToward(p.vx, tVel, step);
+    } else {
+      p.vx = moveToward(p.vx, 0, PLAYER_AIR_DRAG * dt);
+    }
+  }
 }
 
 function startAttack(p, state) {
   if (p.comboIndex >= COMBO_HITS) p.comboIndex = 0;
   p.comboIndex += 1;
-  const dur = ATTACK_DURATION[p.comboIndex - 1];
-  p.attackTimer  = dur;
-  p.comboWindow  = dur + COMBO_WINDOW;
+  const ci  = p.comboIndex - 1;
+  const su  = ATTACK_STARTUP[ci]  ?? ATTACK_STARTUP[0];
+  const act = ATTACK_ACTIVE[ci]  ?? ATTACK_ACTIVE[0];
+  const re  = ATTACK_RECOVERY[ci] ?? ATTACK_RECOVERY[0];
+  const tot = su + act + re;
+  p.attackTimer  = tot;
+  p.comboWindow  = tot + COMBO_WINDOW;
   p.attackActive = false;
   p.state        = 'attack';
   p.vx           = 0;
-}
-
-function tryHitEnemies(p, state) {
-  const hitbox = getAttackHitbox(p);
-  const dmg   = ATTACK_DAMAGE[p.comboIndex - 1]    || ATTACK_DAMAGE[0];
-  const kb    = ATTACK_KNOCKBACK[p.comboIndex - 1] || ATTACK_KNOCKBACK[0];
-
-  for (const e of state.enemies) {
-    if (!e.alive) continue;
-    if (e._hitThisSwing) continue;
-    if (rectsOverlap(hitbox, e)) {
-      e.hp -= dmg;
-      e._hitThisSwing = true;
-      e.vx = (p.facingRight ? 1 : -1) * kb;
-      e.vy = -200;
-      e.state = 'hurt';
-      e.hurtTimer = 0.25;
-      if (e.hp <= 0) { e.alive = false; e.state = 'dead'; }
-      state.hitstop = HITSTOP_DURATION;
-    }
-  }
-}
-
-function getAttackHitbox(p) {
-  return {
-    x: p.facingRight ? p.x + p.w : p.x - ATTACK_RANGE_W,
-    y: p.y + (p.h / 2) - ATTACK_RANGE_H / 2,
-    w: ATTACK_RANGE_W,
-    h: ATTACK_RANGE_H,
-  };
-}
-
-function rectsOverlap(a, b) {
-  return (
-    a.x < b.x + b.w &&
-    a.x + a.w > b.x &&
-    a.y < b.y + b.h &&
-    a.y + a.h > b.y
-  );
-}
-
-// Clear per-swing hit flags at attack start / end
-export function clearHitFlags(state) {
-  for (const e of state.enemies) e._hitThisSwing = false;
 }

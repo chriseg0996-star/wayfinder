@@ -62,6 +62,15 @@ export const HITSTOP_DURATION    = 0.058; // global freeze; tune for “impact�
 // Vertical pop on slimes from player hits (separate from horizontal KB)
 export const ENEMY_ON_HIT_KB_Y    = -200;
 
+// --- Progression (Phase 2) ---
+export const XP_PER_SLIME_KILL   = 40;
+export const XP_TO_NEXT_BASE     = 80;   // level 1 bar to reach level 2
+export const XP_TO_NEXT_PER_LEVEL= 45;   // added per level
+// STR: melee mult; VIT: max HP mult; AGI: move speed mult
+export const STAT_DMG_PER_STR    = 0.03;
+export const STAT_VIT_MAX_HP     = 0.04;
+export const STAT_AGI_MOVE       = 0.018;
+
 // --- Player stats (hurt from enemies — pipeline) ---
 export const PLAYER_MAX_HP       = 100;
 export const PLAYER_HURT_DUR     = 0.35;   // seconds in hurt state
@@ -95,7 +104,12 @@ export const CAM_DEADZONE_Y  = 60;    // px vertical deadzone
 
 // --- Colors (placeholder art palette) ---
 export const COLOR_BG        = '#0d1117';
-export const COLOR_PLATFORM  = '#3a4a5c';
+// Slightly lifted vs parallax backdrops so walkable read stays in front
+export const COLOR_PLATFORM  = '#4d5f6e';
+/** Top 2px highlight on colliders — separates gameplay layer from parallax */
+export const COLOR_PLATFORM_RIM   = '#6a8198';
+/** Thin bottom band — grounds platform vs background haze */
+export const COLOR_PLATFORM_SHADE = '#384858';
 export const COLOR_PLAYER    = '#4fc3f7';
 export const COLOR_PLAYER_ATK= '#fff176';
 export const COLOR_SLIME     = '#66bb6a';
@@ -108,12 +122,12 @@ export const COLOR_IFRAME    = 'rgba(100,200,255,0.18)';
 export const COLOR_DEBUG_BG  = 'rgba(0,0,0,0.72)';
 export const COLOR_DEBUG_TEXT= '#b0bec5';
 
-// --- Round / UI copy (Phase 1 loop) ---
-export const UI_GOAL_LINE        = 'Defeat all slimes';
+// --- Round / UI copy (end-of-round overlays) ---
 export const UI_LOSE_TITLE       = 'You died';
 export const UI_LOSE_SUB         = 'Press R to try again';
 export const UI_WIN_TITLE        = 'Cleared';
-export const UI_WIN_SUB          = 'Press R to play again';
+export const UI_WIN_SUB_NEXT     = 'N — next area   ·   R — new run';
+export const UI_WIN_SUB_FINALE   = 'R — new run  ·  all zones cleared';
 export const COLOR_OVERLAY_BG    = 'rgba(13, 17, 23, 0.85)';
 export const COLOR_OVERLAY_TITLE = '#eceff1';
 export const COLOR_OVERLAY_SUB   = '#90a4ae';

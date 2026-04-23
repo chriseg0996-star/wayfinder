@@ -1,107 +1,143 @@
 // ============================================================
 // WAYFINDER — GameState.js
-// Plain serializable object. No methods. No DOM refs. No canvas.
-// This object can be sent over the wire in Phase 2 unchanged.
 //
-// Transient (added at runtime, omit from network snapshots / or strip):
-//   enemies[]._hitThisSwing — bool, cleared each tick in Combat.clearHitFlags
-//   player._gravityScale   — set during integrate in Player.js; not in createGameState()
+// **Authoritative (persistent) data** — all fields you see on `state`, `state.player`,
+// and `state.enemies[i]` *except* keys starting with `_*` on any nested object.
+// No methods on the state object. No DOM, canvas, or context refs. Game holds canvas
+// on the `Game` class only, not on `state`.
+//
+// **Runtime-only (omitted from wire/save)** — by convention, any key starting with `_`:
+//   - player._gravityScale  — per-frame; see Player.js, Physics.js
+//   - enemies[]._hitThisSwing — per-tick; see Combat.js clearHitFlags
+//
+// Use getSerializableGameState() from `serializeGameState.js` for JSON / replication.
 // ============================================================
 
 import {
   PLAYER_MAX_HP, PLAYER_W, PLAYER_H,
   SLIME_MAX_HP, SLIME_W, SLIME_H,
-  CANVAS_W, CANVAS_H
+  CANVAS_W, CANVAS_H,
 } from '../config/Constants.js';
+import { getZoneConfig, getNextZoneId, ZONE_ORDER } from '../data/zones.js';
+import { recomputePlayerDerived } from '../systems/Progression.js';
+
+function defaultPlayer() {
+  const p = {
+    x: 120,
+    y: 300,
+    vx: 0,
+    vy: 0,
+    w: PLAYER_W,
+    h: PLAYER_H,
+    hp: PLAYER_MAX_HP,
+    maxHp: PLAYER_MAX_HP,
+    facingRight: true,
+
+    state: 'idle',
+
+    grounded: false,
+    coyoteTimer: 0,
+    jumpBuffer: 0,
+    wasGrounded: false,
+    jumpVarActive: false,
+
+    dodgeTimer: 0,
+    dodgeCooldown: 0,
+    dodgeDir: 1,
+    iframeTimer: 0,
+    dodgeBuffer: 0,
+
+    comboIndex: 0,
+    attackTimer: 0,
+    attackActive: false,
+    comboWindow: 0,
+    attackInputCooldown: 0,
+    hitstopTimer: 0,
+
+    hurtTimer: 0,
+
+    xp: 0,
+    level: 1,
+    stats: { str: 5, vit: 5, agi: 5 },
+  };
+  recomputePlayerDerived(p);
+  p.hp = p.maxHp;
+  return p;
+}
 
 export function createGameState() {
-  return {
+  const state = {
     tick: 0,
-
-    roundState: 'playing', // 'playing' | 'win' | 'lose'
-
-    player: {
-      x: 120,
-      y: 300,
-      vx: 0,
-      vy: 0,
-      w: PLAYER_W,
-      h: PLAYER_H,
-      hp: PLAYER_MAX_HP,
-      maxHp: PLAYER_MAX_HP,
-      facingRight: true,
-
-      // FSM
-      state: 'idle',       // idle | run | jump | fall | dodge | attack | hurt | dead
-
-      // Jump
-      grounded: false,
-      coyoteTimer: 0,
-      jumpBuffer: 0,
-      wasGrounded: false,
-      // One variable-height cut per jump; reset on land
-      jumpVarActive: false,
-
-      // Dodge
-      dodgeTimer: 0,
-      dodgeCooldown: 0,
-      dodgeDir: 1,
-      iframeTimer: 0,
-      dodgeBuffer: 0,
-
-      // Combat
-      comboIndex: 0,
-      attackTimer: 0,
-      attackActive: false,
-      comboWindow: 0,
-      attackInputCooldown: 0, // min gap before a new neutral combo
-      hitstopTimer: 0,
-
-      // Hurt
-      hurtTimer: 0,
-    },
-
-    enemies: [
-      makeSlime(420, 380),
-      makeSlime(700, 200),
-      makeSlime(820, 380),
-    ],
-
-    // Hitstop applies globally (both player + enemies freeze)
-    hitstop: 0,
-
-    // Camera
-    camera: {
-      x: 0,
-      y: 0,
-    },
-
-    // Level geometry — static platforms
-    platforms: [
-      // Ground
-      { x: 0,   y: 420, w: CANVAS_W * 2, h: 120 },
-      // Floating platforms
-      { x: 300, y: 340, w: 160, h: 20 },
-      { x: 560, y: 260, w: 180, h: 20 },
-      { x: 800, y: 180, w: 140, h: 20 },
-      { x: 160, y: 260, w: 120, h: 20 },
-    ],
-
-    levelW: CANVAS_W * 2,
-    levelH: CANVAS_H,
-
-    debug: false,
+    roundState: 'playing',
+    currentZoneId: ZONE_ORDER[0],
+    zoneBg:        getZoneConfig(ZONE_ORDER[0]).bg,
+    player:        defaultPlayer(),
+    enemies:       [],
+    hitstop:       0,
+    camera:        { x: 0, y: 0 },
+    platforms:     [],
+    levelW:        CANVAS_W * 2,
+    levelH:        CANVAS_H,
+    parallaxTuning: null,
+    debug:         false,
   };
+  loadZone(state, ZONE_ORDER[0]);
+  return state;
 }
 
 /**
- * Replaces the live state object fields with a fresh run from createGameState().
- * Keeps the same top-level `state` reference (see main.js / Game).
+ * @param {object} state
+ * @param {string} id - zone id (forest | ruins | cave)
  */
+export function loadZone(state, id) {
+  const z    = getZoneConfig(id);
+  const p    = state.player;
+
+  state.currentZoneId = id;
+  state.zoneBg         = z.bg;
+  state.parallaxTuning = z.parallaxTuning ?? null;
+  state.platforms     = z.platforms.map(plat => ({ ...plat }));
+  state.levelW        = z.levelW;
+  state.levelH        = z.levelH;
+  state.enemies       = z.slimeSpawns.map(([x, y]) => makeSlime(x, y));
+  state.roundState    = 'playing';
+  state.hitstop       = 0;
+
+  p.x  = z.spawn.x;
+  p.y  = z.spawn.y;
+  p.vx = 0;
+  p.vy = 0;
+  p.state = 'idle';
+  p.hurtTimer = 0;
+  p.grounded  = false;
+  p.iframeTimer = 0;
+  p.comboIndex = 0;
+  p.attackActive = false;
+  p.attackTimer  = 0;
+  p.dodgeTimer   = 0;
+  p.dodgeCooldown = 0;
+  p.hp = p.maxHp;
+  state.camera.x = 0;
+  state.camera.y = 0;
+}
+
+/**
+ * @param {object} state
+ * @returns {boolean} true if a next zone was loaded
+ */
+export function loadNextZoneIfAny(state) {
+  const next = getNextZoneId(state.currentZoneId);
+  if (!next) return false;
+  loadZone(state, next);
+  return true;
+}
+
 export function resetRun(state) {
   const n = createGameState();
   state.tick = n.tick;
   state.roundState = n.roundState;
+  state.currentZoneId = n.currentZoneId;
+  state.zoneBg = n.zoneBg;
   state.player = n.player;
   state.enemies = n.enemies;
   state.hitstop = n.hitstop;
@@ -109,6 +145,7 @@ export function resetRun(state) {
   state.platforms = n.platforms;
   state.levelW = n.levelW;
   state.levelH = n.levelH;
+  state.parallaxTuning = n.parallaxTuning;
   state.debug = n.debug;
 }
 
@@ -124,9 +161,9 @@ function makeSlime(x, y) {
     maxHp: SLIME_MAX_HP,
     facingRight: false,
     alive: true,
+    type: 'slime',
 
-    // FSM
-    state: 'patrol',   // patrol | chase | telegraph | attack | hurt | dead
+    state: 'patrol',
 
     patrolDir: 1,
     patrolTimer: 0,
@@ -136,5 +173,8 @@ function makeSlime(x, y) {
     hurtTimer: 0,
     hitstopTimer: 0,
     grounded: false,
+
+    /** @type {number | null} set when killed (sim tick) for one-shot death clip */
+    deathStartTick: null,
   };
 }

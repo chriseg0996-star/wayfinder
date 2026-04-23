@@ -13,7 +13,7 @@ import { updatePlayer }    from '../entities/Player.js';
 import { updateEnemies }                 from '../entities/Enemy.js';
 import { render }                        from '../systems/Render.js';
 import { renderUI }                      from '../systems/UI.js';
-import { resetRun }                      from '../state/GameState.js';
+import { resetRun, loadNextZoneIfAny }  from '../state/GameState.js';
 
 export class Game {
   constructor(canvas, state) {
@@ -78,8 +78,11 @@ export class Game {
     const state = this.state;
 
     if (state.roundState !== 'playing') {
-      if (input.restartPressed) resetRun(state);
       if (input.debugPressed) state.debug = !state.debug;
+      if (state.roundState === 'win' && input.nextZonePressed && loadNextZoneIfAny(state)) {
+        return;
+      }
+      if (input.restartPressed) resetRun(state);
       return;
     }
 
