@@ -2,6 +2,10 @@
 // WAYFINDER — GameState.js
 // Plain serializable object. No methods. No DOM refs. No canvas.
 // This object can be sent over the wire in Phase 2 unchanged.
+//
+// Transient (added at runtime, omit from network snapshots / or strip):
+//   enemies[]._hitThisSwing — bool, cleared each tick in Combat.clearHitFlags
+//   player._gravityScale   — set during integrate in Player.js; not in createGameState()
 // ============================================================
 
 import {
@@ -13,6 +17,8 @@ import {
 export function createGameState() {
   return {
     tick: 0,
+
+    roundState: 'playing', // 'playing' | 'win' | 'lose'
 
     player: {
       x: 120,
@@ -33,18 +39,22 @@ export function createGameState() {
       coyoteTimer: 0,
       jumpBuffer: 0,
       wasGrounded: false,
+      // One variable-height cut per jump; reset on land
+      jumpVarActive: false,
 
       // Dodge
       dodgeTimer: 0,
       dodgeCooldown: 0,
       dodgeDir: 1,
       iframeTimer: 0,
+      dodgeBuffer: 0,
 
       // Combat
       comboIndex: 0,
       attackTimer: 0,
       attackActive: false,
       comboWindow: 0,
+      attackInputCooldown: 0, // min gap before a new neutral combo
       hitstopTimer: 0,
 
       // Hurt
@@ -82,6 +92,24 @@ export function createGameState() {
 
     debug: false,
   };
+}
+
+/**
+ * Replaces the live state object fields with a fresh run from createGameState().
+ * Keeps the same top-level `state` reference (see main.js / Game).
+ */
+export function resetRun(state) {
+  const n = createGameState();
+  state.tick = n.tick;
+  state.roundState = n.roundState;
+  state.player = n.player;
+  state.enemies = n.enemies;
+  state.hitstop = n.hitstop;
+  state.camera = n.camera;
+  state.platforms = n.platforms;
+  state.levelW = n.levelW;
+  state.levelH = n.levelH;
+  state.debug = n.debug;
 }
 
 function makeSlime(x, y) {

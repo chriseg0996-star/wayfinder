@@ -24,7 +24,9 @@ export function snapshot() {
     jump:    !!(keys['Space']      || keys['ArrowUp'] || keys['KeyW']),
     attack:  !!(keys['KeyZ']       || keys['KeyJ']),
     dodge:   !!(keys['KeyX']       || keys['KeyK']),
-    debug:   !!(keys['F3']),
+    restart: !!(keys['KeyR']),
+    // F3 is OS/browser-dependent; Backquote is a reliable fallback
+    debug:   !!(keys['F3']        || keys['Backquote']),
   };
 }
 
@@ -33,10 +35,11 @@ let _prev = {};
 export function snapshotWithEdge() {
   const cur = snapshot();
   const edge = {
-    jumpPressed:   cur.jump   && !_prev.jump,
-    attackPressed: cur.attack && !_prev.attack,
-    dodgePressed:  cur.dodge  && !_prev.dodge,
-    debugPressed:  cur.debug  && !_prev.debug,
+    jumpPressed:    cur.jump   && !_prev.jump,
+    attackPressed:  cur.attack && !_prev.attack,
+    dodgePressed:   cur.dodge  && !_prev.dodge,
+    restartPressed: cur.restart && !_prev.restart,
+    debugPressed:   cur.debug  && !_prev.debug,
   };
   _prev = cur;
   return { ...cur, ...edge };

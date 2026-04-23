@@ -7,11 +7,45 @@ import {
   CANVAS_W, CANVAS_H,
   COLOR_HP_BG, COLOR_HP_BAR, COLOR_HP_FILL,
   COLOR_DEBUG_BG, COLOR_DEBUG_TEXT,
+  UI_GOAL_LINE, UI_LOSE_TITLE, UI_LOSE_SUB, UI_WIN_TITLE, UI_WIN_SUB,
+  COLOR_OVERLAY_BG, COLOR_OVERLAY_TITLE, COLOR_OVERLAY_SUB,
 } from '../config/Constants.js';
 
 export function renderUI(ctx, state, fps) {
+  if (state.roundState !== 'playing') {
+    drawRoundOverlay(ctx, state);
+  }
   drawHPBar(ctx, state.player);
+  if (state.roundState === 'playing') {
+    drawGoalLine(ctx);
+  }
   if (state.debug) drawDebug(ctx, state, fps);
+}
+
+function drawGoalLine(ctx) {
+  ctx.fillStyle = 'rgba(236, 239, 241, 0.55)';
+  ctx.font = '12px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(UI_GOAL_LINE, CANVAS_W * 0.5, CANVAS_H - 12);
+}
+
+function drawRoundOverlay(ctx, state) {
+  ctx.fillStyle = COLOR_OVERLAY_BG;
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  const won = state.roundState === 'win';
+  ctx.fillStyle = COLOR_OVERLAY_TITLE;
+  ctx.font = 'bold 28px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const title = won ? UI_WIN_TITLE : UI_LOSE_TITLE;
+  ctx.fillText(title, CANVAS_W * 0.5, CANVAS_H * 0.5 - 16);
+
+  ctx.fillStyle = COLOR_OVERLAY_SUB;
+  ctx.font = '15px monospace';
+  const sub = won ? UI_WIN_SUB : UI_LOSE_SUB;
+  ctx.fillText(sub, CANVAS_W * 0.5, CANVAS_H * 0.5 + 12);
 }
 
 function drawHPBar(ctx, p) {
@@ -53,6 +87,7 @@ function drawHPBar(ctx, p) {
 function drawDebug(ctx, state, fps) {
   const p    = state.player;
   const lines = [
+    `ROUND     ${state.roundState}`,
     `FPS       ${fps}`,
     `TICK      ${state.tick}`,
     `STATE     ${p.state}`,
@@ -87,5 +122,5 @@ function drawDebug(ctx, state, fps) {
 
   ctx.fillStyle = '#546e7a';
   ctx.font = '10px monospace';
-  ctx.fillText('[F3] toggle debug', bx + pad, by + bh - 4);
+  ctx.fillText('[F3] or [`] toggle debug', bx + pad, by + bh - 4);
 }

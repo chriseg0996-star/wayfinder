@@ -8,10 +8,12 @@
 import { FIXED_DT, CANVAS_W, CANVAS_H } from '../config/Constants.js';
 import { snapshotWithEdge }              from './Input.js';
 import { updateCamera }                  from './Camera.js';
-import { updatePlayer, clearHitFlags }   from '../entities/Player.js';
+import { clearHitFlags }   from '../systems/Combat.js';
+import { updatePlayer }    from '../entities/Player.js';
 import { updateEnemies }                 from '../entities/Enemy.js';
 import { render }                        from '../systems/Render.js';
 import { renderUI }                      from '../systems/UI.js';
+import { resetRun }                      from '../state/GameState.js';
 
 export class Game {
   constructor(canvas, state) {
@@ -74,6 +76,13 @@ export class Game {
 
   _update(input) {
     const state = this.state;
+
+    if (state.roundState !== 'playing') {
+      if (input.restartPressed) resetRun(state);
+      if (input.debugPressed) state.debug = !state.debug;
+      return;
+    }
+
     state.tick++;
 
     // Debug toggle
@@ -86,6 +95,12 @@ export class Game {
     updatePlayer(state, input);
     updateEnemies(state);
     updateCamera(state);
+
+    if (state.player.state === 'dead' || state.player.hp <= 0) {
+      state.roundState = 'lose';
+    } else if (state.enemies.every(e => !e.alive)) {
+      state.roundState = 'win';
+    }
   }
 
   _render(alpha) {
