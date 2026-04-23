@@ -1,16 +1,14 @@
 // ============================================================
 // WAYFINDER — GameState.js
 //
-// **Authoritative (persistent) data** — all fields you see on `state`, `state.player`,
-// and `state.enemies[i]` *except* keys starting with `_*` on any nested object.
-// No methods on the state object. No DOM, canvas, or context refs. Game holds canvas
-// on the `Game` class only, not on `state`.
+// **In-memory (full sim):** `state` is plain data — no methods, no DOM/canvas/ctx
+// (canvas lives on `Game` in Game.js). Per-tick / engine fields may use the `_` prefix
+// (e.g. `player._gravityScale`, `enemies[]._hitThisSwing`).
 //
-// **Runtime-only (omitted from wire/save)** — by convention, any key starting with `_`:
-//   - player._gravityScale  — per-frame; see Player.js, Physics.js
-//   - enemies[]._hitThisSwing — per-tick; see Combat.js clearHitFlags
-//
-// Use getSerializableGameState() from `serializeGameState.js` for JSON / replication.
+// **Wire / JSON snapshot** — `getSerializableGameState()` in `serializeGameState.js`
+// returns a *durable* slice: strips all `_*` keys, then drops FSM, buffers, and timers
+// listed there (root `hitstop` / `debug`, player and enemy transients). A future
+// `loadFromSnapshot()` could re-derive in-air FSM from position/zone if needed.
 // ============================================================
 
 import {
@@ -176,5 +174,8 @@ function makeSlime(x, y) {
 
     /** @type {number | null} set when killed (sim tick) for one-shot death clip */
     deathStartTick: null,
+
+    /** Render-only: offset sim tick for loop anims so spawns are not frame-locked (animClips). */
+    _animPhase: (Math.imul(x | 0, 17) ^ (y | 0) * 23) & 0xffff,
   };
 }

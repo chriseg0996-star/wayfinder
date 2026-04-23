@@ -20,6 +20,8 @@ export class Game {
     this.canvas  = canvas;
     this.ctx     = canvas.getContext('2d');
     this.state   = state;
+    // Pixel-art sampling for sprite upscaling.
+    this.ctx.imageSmoothingEnabled = false;
 
     canvas.width  = CANVAS_W;
     canvas.height = CANVAS_H;
@@ -78,7 +80,7 @@ export class Game {
     const state = this.state;
 
     if (state.roundState !== 'playing') {
-      if (input.debugPressed) state.debug = !state.debug;
+      if (input.debugPressed) state.debug = !state.debug; // F3 / `
       if (state.roundState === 'win' && input.nextZonePressed && loadNextZoneIfAny(state)) {
         return;
       }
@@ -88,8 +90,7 @@ export class Game {
 
     state.tick++;
 
-    // Debug toggle
-    if (input.debugPressed) state.debug = !state.debug;
+    if (input.debugPressed) state.debug = !state.debug; // F3 (see Input.js: Backquote if F3 unavailable)
 
     // Clear per-tick hit flags
     clearHitFlags(state);

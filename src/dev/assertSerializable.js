@@ -1,4 +1,4 @@
-// Dev-only: JSON round-trip checks for the **plain-data** view of state.
+// Dev-only: JSON round-trip for getSerializableGameState (underscore + wire-omit).
 
 import { createGameState } from '../state/GameState.js';
 import { getSerializableGameState } from '../state/serializeGameState.js';

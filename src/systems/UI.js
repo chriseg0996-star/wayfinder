@@ -1,7 +1,9 @@
 // ============================================================
-// WAYFINDER — UI.js
-// Phase 1: HP bar + win/lose overlays + optional F3/Backquote debug.
-// (Zone title, goal ribbon, XP/combo HUD → use debug overlay only for QA.)
+// WAYFINDER — UI.js — Phase 1 “minimal HUD”
+// — HP bar (always in play and on round end)
+// — Win/lose + hint copy only when round is over (loop feedback, not extra systems)
+// — Debug overlay: F3 (or `) toggles `state.debug` in Game; draw only when on (zero per-frame work when off)
+// No XP, cooldown, or meta UI. See entityRender for in-world gizmos (separate from HUD).
 // ============================================================
 
 import {
@@ -13,7 +15,6 @@ import {
   COLOR_OVERLAY_BG, COLOR_OVERLAY_TITLE, COLOR_OVERLAY_SUB,
 } from '../config/Constants.js';
 import { isLastZone } from '../data/zones.js';
-import { getXpToNextForLevel } from '../systems/Progression.js';
 
 export function renderUI(ctx, state, fps) {
   if (state.roundState !== 'playing') {
@@ -21,7 +22,7 @@ export function renderUI(ctx, state, fps) {
   }
   drawHPBar(ctx, state.player);
   if (state.debug) {
-    drawDebug(ctx, state, fps);
+    drawDebugOverlay(ctx, state, fps);
   }
 }
 
@@ -70,37 +71,48 @@ function drawHPBar(ctx, p) {
   ctx.fillText(`HP  ${p.hp} / ${p.maxHp}`, bx + 6, by + 12);
 }
 
-const DEBUG_HINT = '[F3] or [`] toggle';
+const DEBUG_LH  = 12;
+const DEBUG_PAD = 4;
+const DEBUG_W   = 168;
 
-function drawDebug(ctx, state, fps) {
-  const p   = state.player;
-  const need = getXpToNextForLevel(p.level);
+/**
+ * Bottom-left, 7 lines. Only when `state.debug` (no work when off).
+ * FPS: Game keeps a light rolling frame-time average; overlay adds only 7 `fillText` + fill/stroke.
+ */
+function drawDebugOverlay(ctx, state, fps) {
+  const p = state.player;
+  const c = state.camera;
+  const gnd  = p.grounded ? 1 : 0;
+  const f1  = n => n.toFixed(1).padStart(7, ' ');
+
   const lines = [
-    `FPS  ${fps}  TICK  ${state.tick}  RND  ${state.roundState}  Z  ${state.currentZoneId}`,
-    `LV${p.level}  XP  ${p.xp.toFixed(0)}/${need}  S/V/A  ${p.stats.str}/${p.stats.vit}/${p.stats.agi}`,
-    `P  ${p.state}  g ${p.grounded}  x,y  ${p.x.toFixed(0)} ${p.y.toFixed(0)}  v  ${p.vx.toFixed(0)} ${p.vy.toFixed(0)}`,
-    `ifr ${p.iframeTimer.toFixed(2)}  coy ${p.coyoteTimer.toFixed(2)}  cmb ${p.comboIndex}  hstop ${state.hitstop.toFixed(2)}`,
-    `cam  ${state.camera.x.toFixed(0)} ${state.camera.y.toFixed(0)}`,
+    `fps ${String(fps).padStart(3, ' ')}`,
+    `p.x ${f1(p.x)}  p.y ${f1(p.y)}`,
+    `v.x ${f1(p.vx)}  v.y ${f1(p.vy)}`,
+    `gnd ${gnd}`,
+    `st  ${p.state}`,
+    `cmb ${p.comboIndex}`,
+    `c.x ${String(Math.round(c.x)).padStart(4, ' ')}  c.y ${String(Math.round(c.y)).padStart(4, ' ')}`,
   ];
-
-  const lh  = 15;
-  const pad = 8;
-  const bw  = Math.min(560, CANVAS_W - 20);
-  const bh  = lines.length * lh + pad * 2;
-  const bx  = 12;
+  const nL = lines.length;
+  const bh  = nL * DEBUG_LH + DEBUG_PAD * 2;
+  const bx  = 8;
   const by  = CANVAS_H - bh - 8;
 
   ctx.fillStyle = COLOR_DEBUG_BG;
-  ctx.fillRect(bx, by, bw, bh);
+  ctx.fillRect(bx, by, DEBUG_W, bh);
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.lineWidth   = 1;
+  ctx.strokeRect(bx + 0.5, by + 0.5, DEBUG_W - 1, bh - 1);
 
-  ctx.fillStyle = COLOR_DEBUG_TEXT;
-  ctx.font = '10px monospace';
-  ctx.textAlign = 'left';
+  ctx.fillStyle    = COLOR_DEBUG_TEXT;
+  ctx.font         = '10px ui-monospace, "Cascadia Mono", Consolas, monospace';
+  ctx.textAlign    = 'left';
+  ctx.textBaseline = 'top';
 
-  lines.forEach((line, i) => {
-    ctx.fillText(line, bx + pad, by + pad + 9 + i * lh);
-  });
-
-  ctx.fillStyle = '#6b7a8a';
-  ctx.fillText(DEBUG_HINT, bx + pad, by + bh - 4);
+  let y = by + DEBUG_PAD;
+  for (let i = 0; i < nL; i++) {
+    ctx.fillText(lines[i], bx + DEBUG_PAD, y);
+    y += DEBUG_LH;
+  }
 }

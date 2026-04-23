@@ -1,10 +1,11 @@
 // ============================================================
-// Zone definitions — layout + spawns. Used by loadZone in GameState.
+// Zone definitions — layout + spawns. Used by loadZone in GameState. No new maps here: edit entries only.
 //
-// parallaxTuning (optional) — per-zone mood on the 3 placeholder gradient layers
-//   desatAdd:  [far, mid, near]  extra desat 0..~0.2
-//   darkenAdd: [far, mid, near]  extra darken 0..~0.2
-// Tweak when adding PNGs: keep "far" most muted so actors stay readable.
+// Background: `bg` tints the 3 parallax gradient layers (far → mid → near in backgroundLayers).
+// parallaxTuning (optional) — per layer index: [0]=far, [1]=mid, [2]=near, stacked on artConfig
+//   PARALLAX_LAYERS + DEFAULT_PARALLAX_TUNING. desatAdd / darkenAdd: extra haze (Constants global dim
+//   READABILITY_PARALLAX_OPACITY_MULT still applies to every layer’s opacity). Does not change scroll speed
+//   (tune multX/Y only in `render/artConfig.js` PARALLAX_LAYERS).
 // ============================================================
 
 import { CANVAS_W, CANVAS_H } from '../config/Constants.js';
@@ -15,6 +16,11 @@ export const ZONES = {
   forest: {
     displayName: 'Whispering Forest',
     bg:         '#0d1117',
+    // Slight haze, even across layers; easy outdoor read vs gameplay
+    parallaxTuning: {
+      desatAdd:  [0.02, 0.01, 0.01],
+      darkenAdd: [0.02, 0.01, 0.01],
+    },
     levelW:     CANVAS_W * 2,
     levelH:     CANVAS_H,
     spawn:      { x: 120, y: 300 },
@@ -35,9 +41,10 @@ export const ZONES = {
   ruins: {
     displayName: 'Sunken Ruins',
     bg:         '#12121c',
+    // Slightly heavier mid/far, cooler void (still bg-only; platforms unchanged)
     parallaxTuning: {
-      desatAdd:  [0.05, 0.02, 0.01],
-      darkenAdd: [0.05, 0.03, 0.02],
+      desatAdd:  [0.04, 0.02, 0.01],
+      darkenAdd: [0.04, 0.02, 0.02],
     },
     levelW:     CANVAS_W * 2,
     levelH:     CANVAS_H,
@@ -59,9 +66,10 @@ export const ZONES = {
   cave: {
     displayName: 'Deep Cavern',
     bg:         '#0a0e14',
+    // Darkest, most desaturated: push depth to back; foreground reads forward
     parallaxTuning: {
-      desatAdd:  [0.1, 0.08, 0.04],
-      darkenAdd: [0.1, 0.06, 0.03],
+      desatAdd:  [0.06, 0.05, 0.03],
+      darkenAdd: [0.08, 0.05, 0.02],
     },
     levelW:     CANVAS_W * 2,
     levelH:     CANVAS_H,

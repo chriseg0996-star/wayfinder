@@ -2,6 +2,25 @@
 // WAYFINDER — Player.js
 // Pure logic. Reads state + input snapshot. Mutates state only.
 // No canvas, no DOM, no Input import.
+//
+// **Gameplay FSM (`p.state`) → animation row keys (Constants.PLAYER_ANIM)**
+// Full table: `Constants.js` (PLAYER_SHEET_PX / PLAYER_ANIM block). Render: getPlayerAnimKey.
+//
+// Locomotion (loop clips — names match 1:1: idle, run, jump, fall):
+//   `applyPlayerLocomotionState()` only on the free-movement path, after input/jump; sets p.state
+//   from grounded + |vx| vs PLAYER_LOCO_RUN_VX, or air + vy sign.
+//
+// One-shots (same wall times as these timers; anim distribution in PLAYER_ANIM `fps`):
+//   attack — p.state 'attack' + p.comboIndex 1..3 → clip attack_1/2/3; attackTimer, startAttack();
+//   dodge  — p.state 'dodge'; p.dodgeTimer, DODGE_DURATION;
+//   hurt   — p.state 'hurt'; p.hurtTimer, PLAYER_HURT_DUR (set from Combat, not here).
+//
+// Transitions (this file, top to bottom in updatePlayer): hitstop → dead → hurt → dodge →
+//   dodge start from buffer → attack → neutral attack input → free move + applyPlayerLocomotionState.
+//
+// dead: p.state = 'dead', early return; clip idles until real death art (see animKeys).
+// Sprite: PLAYER_ANIM → animClips → entityRender. Visual readability (stroke/shadow): Constants READABILITY_PLAYER_*;
+//   no extra fields or sim changes — tuning render-side only.
 // ============================================================
 
 import {
@@ -14,6 +33,7 @@ import {
   COMBO_HITS, COMBO_WINDOW,
   ATTACK_STARTUP, ATTACK_ACTIVE, ATTACK_RECOVERY,
   ATTACK_MIN_INTERVAL,
+  PLAYER_LOCO_RUN_VX,
   FIXED_DT,
 } from '../config/Constants.js';
 
@@ -165,17 +185,28 @@ export function updatePlayer(state, input) {
     p.jumpVarActive = false;
   }
 
-  // --- State machine (visual state) ---
-  if (!p.grounded) {
-    p.state = p.vy < 0 ? 'jump' : 'fall';
-  } else if (p.vx !== 0) {
-    p.state = 'run';
-  } else {
-    p.state = 'idle';
-  }
+  // Locomotion only: sets p.state to idle | run | jump | fall (clip keys = same names).
+  // Not run during attack, dodge, hurt, or hitstop.
+  applyPlayerLocomotionState(p);
 
   playerIntegrate(p, state);
   clampToLevel(p, state.levelW, state.levelH);
+}
+
+/**
+ * Looping animation drive: `p.state` = clip key for idle, run, jump, fall.
+ * @param {object} p
+ */
+function applyPlayerLocomotionState(p) {
+  if (!p.grounded) {
+    p.state = p.vy < 0 ? 'jump' : 'fall';
+    return;
+  }
+  if (Math.abs(p.vx) > PLAYER_LOCO_RUN_VX) {
+    p.state = 'run';
+    return;
+  }
+  p.state = 'idle';
 }
 
 // --- Physics helpers (movement + jump; combat unchanged) ---
@@ -227,6 +258,7 @@ function applyPlayerHorizontal(p, input, dt) {
   }
 }
 
+/** One shot per index: FSM 'attack' + comboIndex 1..3 → clip attack_1 / attack_2 / attack_3. */
 function startAttack(p, state) {
   if (p.comboIndex >= COMBO_HITS) p.comboIndex = 0;
   p.comboIndex += 1;

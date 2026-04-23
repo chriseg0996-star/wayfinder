@@ -1,7 +1,17 @@
 // ============================================================
-// WAYFINDER — Enemy.js
-// Slime AI: patrol → chase → telegraph → attack → hurt → patrol
+// WAYFINDER — Enemy.js — single slime type
+// Slime AI: patrol ↔ chase → telegraph → attack → patrol; hurt interrupts and clears wind-up.
 // Pure logic. No canvas, no DOM.
+//
+// **AI e.state → animation clip (Constants.SLIME_AI_TO_ANIM) — see Constants.js table by SLIME_ANIM**
+//  patrol     → idle     | chase  → move      | telegraph → telegraph (wind-up, then → attack)
+//  attack     → attack   | hurt   → hurt      | (!alive) → death clip (not AI; Combat + animClips)
+//
+// Hurt: zeros telegraph + attack timers so a hit never leaves a half-started bite (clean transition).
+// Death: e.alive false → updateEnemies skips; `death` clip uses deathStartTick in render, not FSM.
+//
+// Sprite + telegraph gizmo: entityRender + animClips. Readability: Constants READABILITY_SLIME_*,
+//   SLIME_TEL_*, READABILITY_TEL_* (visual only; no AI/timer changes).
 // ============================================================
 
 import {
@@ -56,6 +66,7 @@ function updateSlime(e, p, state, dt) {
       const dir = p.x > e.x ? 1 : -1;
       e.vx = dir * SLIME_CHASE_SPEED;
       e.facingRight = dir > 0;
+      // Detection/windup range only (damage validation is stricter in Combat: plane + hitbox overlap).
       if (distX <= SLIME_ATTACK_RANGE) {
         e.state          = 'telegraph';
         e.telegraphTimer = SLIME_TELEGRAPH_DUR;
@@ -89,6 +100,8 @@ function updateSlime(e, p, state, dt) {
     }
 
     case 'hurt': {
+      e.telegraphTimer = 0;
+      e.attackTimer    = 0;
       if (e.hurtTimer <= 0) {
         e.state       = 'patrol';
         e.patrolTimer = SLIME_PATROL_TURN;

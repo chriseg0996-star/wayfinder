@@ -18,3 +18,7 @@ assets/
 Replace each gradient block in `drawParallaxStack` with `ctx.drawImage` using the same `multX` / `multY` transform.
 
 **Conventions:** See [docs/STYLE_BIBLE.md](../docs/STYLE_BIBLE.md). `drawImage` wiring: small manifest, then `Render` / `backgroundLayers` only.
+
+**Player / slime PNGs (Phase 2+):** [`sprites/README.md`](sprites/README.md) — file names, grid, min size, flip. Loaded by `src/render/spriteRegistry.js` (`assets/sprites/player.png`, `slime.png`).
+
+**Parallax image layers:** `assets/parallax/far.png`, `mid.png`, `near.png` — loaded by `loadParallaxLayers()` in `src/render/backgroundLayers.js`; horizontally tiled with fallback to gradients if missing.

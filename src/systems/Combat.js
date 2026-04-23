@@ -10,7 +10,7 @@ import {
   SLIME_HURT_DUR,
   PLAYER_HURT_DUR, PLAYER_HURT_IFRAMES,
   SLIME_ATTACK_DAMAGE, SLIME_KNOCKBACK, SLIME_KNOCKUP,
-  ENEMY_ON_HIT_KB_Y, SLIME_MELEE_REACH,
+  ENEMY_ON_HIT_KB_Y, SLIME_MELEE_REACH, SLIME_MELEE_FEET_Y_TOL, SLIME_MELEE_Y_PAD,
 } from '../config/Constants.js';
 import { getPlayerDamageMultiplier, awardSlimeKillXp } from './Progression.js';
 
@@ -137,12 +137,30 @@ export function processPlayerMeleeHits(state, p) {
 
 // --- Slime melee vs player (range check + pipeline) ---
 
-export function processSlimeMeleeHit(state, _slime, player, distX) {
+function getSlimeMeleeHitbox(slime) {
+  const frontX = slime.facingRight ? slime.x + slime.w : slime.x - SLIME_MELEE_REACH;
+  return {
+    x: frontX,
+    y: slime.y - SLIME_MELEE_Y_PAD,
+    w: SLIME_MELEE_REACH,
+    h: slime.h + SLIME_MELEE_Y_PAD * 2,
+  };
+}
+
+function sameCombatPlaneFeet(slime, player) {
+  const sFeet = slime.y + slime.h;
+  const pFeet = player.y + player.h;
+  return Math.abs(sFeet - pFeet) <= SLIME_MELEE_FEET_Y_TOL;
+}
+
+export function processSlimeMeleeHit(state, slime, player, _distX) {
   if (player.iframeTimer > 0) return;
   if (player.hp <= 0) return;
-  if (distX > SLIME_MELEE_REACH) return;
+  if (!sameCombatPlaneFeet(slime, player)) return;
+  const hitbox = getSlimeMeleeHitbox(slime);
+  if (!rectsOverlap(hitbox, player)) return;
 
-  const dir = player.x > _slime.x ? 1 : -1;
+  const dir = player.x > slime.x ? 1 : -1;
   applyDamage(state, {
     victim: 'player',
     ref: player,

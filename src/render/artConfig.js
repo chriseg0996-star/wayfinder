@@ -10,43 +10,54 @@ export const GRID_PX = 16;
 /**
  * @typedef {object} ParallaxLayerDef
  * @property {string} id
- * @property {number} multX 0..1 scroll factor vs camera X
+ * @property {string} role  sky | midground | nearScenery (for art/docs)
+ * @property {string} [label] human copy e.g. "Mountains" for placeholder gradients
+ * @property {number} multX 0..1 scroll factor vs camera X (lower = slower / farther)
  * @property {number} multY 0..1 scroll factor vs camera Y
  * @property {number} opacity layer alpha (stacked over screen base, source-over)
- * @property {number} desat 0..1 mix toward gray (readability: keep high on far)
- * @property {number} darken 0..1 extra darken (multiplier on channel after desat)
- * @property {number} horizonY gradient horizon position 0..1 of level height
+ * @property {number} desat 0..1 mix toward gray
+ * @property {number} darken 0..1 after desat
+ * @property {number} [contrastPull] 0..1 luma-squeeze; lowers local contrast in bg
+ * @property {number} horizonY 0..1 of level height: gradient "ridge" in band
  */
 
-/** Default three world layers: far sky → mid air → near ground haze (placeholders for PNGs). */
+/** 3 world layers, back→front. Placeholder = gradients; swap in PNGs per layer later. */
 export const PARALLAX_LAYERS = [
   {
-    id:   'far',
-    multX: 0.14,
-    multY: 0.04,
-    /** Receded vs gameplay: lower opacity, more darken so world reads in front */
-    opacity: 0.42,
-    desat:  0.74,
-    darken: 0.3,
-    horizonY: 0.48,
+    id:    'far',
+    role:  'sky',
+    label: 'sky',
+    multX: 0.2,
+    multY: 0.03,
+    opacity: 0.36,
+    desat:  0.8,
+    darken: 0.32,
+    contrastPull: 0.12,
+    horizonY: 0.52,
   },
   {
-    id:   'mid',
-    multX: 0.48,
-    multY: 0.10,
-    opacity: 0.4,
-    desat:  0.55,
-    darken: 0.2,
-    horizonY: 0.42,
+    id:    'mid',
+    role:  'midground',
+    label: 'mountains & trees',
+    multX: 0.5,
+    multY: 0.11,
+    opacity: 0.33,
+    desat:  0.62,
+    darken: 0.22,
+    contrastPull: 0.1,
+    horizonY: 0.4,
   },
   {
-    id:   'near',
-    multX: 0.82,
-    multY: 0.16,
-    opacity: 0.32,
-    desat:  0.4,
-    darken: 0.12,
-    horizonY: 0.38,
+    id:    'near',
+    role:  'nearScenery',
+    label: 'foreground scenery',
+    multX: 0.8,
+    multY: 0.18,
+    opacity: 0.28,
+    desat:  0.5,
+    darken: 0.16,
+    contrastPull: 0.08,
+    horizonY: 0.32,
   },
 ];
 

@@ -1,12 +1,16 @@
 // ============================================================
-// Player + slime: sprite pipeline (animKeys + animClips + spriteConfig).
-// Registry always provides a strip canvas; PNGs replace it when present.
-// Fallback rect draw only if blit fails (e.g. missing source).
+// Player + slime: sprite blits (animKeys → animClips; rows: Constants PLAYER_ANIM / SLIME_ANIM).
+// Registry: optional PNGs — else procedural strip (spriteRegistry). Flip: drawImageFrame flipX.
+// If blit fails: first cell of sheet (0,0) as sprite fallback, then simple rect.
 // ============================================================
 
 import {
   COLOR_PLAYER, COLOR_PLAYER_ATK,
   COLOR_SLIME, COLOR_SLIME_HIT, COLOR_SLIME_TEL,
+  SLIME_TEL_PAD_PX, SLIME_TEL_PULSE, SLIME_TEL_SINE, SLIME_TEL_FONT,
+  READABILITY_PLAYER_STROKE, READABILITY_PLAYER_SHADOW,
+  READABILITY_SLIME_STROKE, READABILITY_SLIME_SHADOW,
+  READABILITY_TEL_STROKE, READABILITY_TEL_INNER_DARK,
   COLOR_IFRAME,
   ATTACK_RANGE_W, ATTACK_RANGE_H,
 } from '../config/Constants.js';
@@ -36,18 +40,36 @@ export function drawPlayer(ctx, state) {
     ctx.fillRect(p.x - 4, p.y - 4, p.w + 8, p.h + 8);
   }
 
+  drawGroundShadow(
+    ctx,
+    p.x + p.w * 0.5,
+    p.y + p.h + READABILITY_PLAYER_SHADOW.offsetY,
+    p.w * READABILITY_PLAYER_SHADOW.halfWMult,
+    READABILITY_PLAYER_SHADOW.ry,
+    READABILITY_PLAYER_SHADOW.color,
+  );
+
   const used = drawImageFrame(
     ctx, img, src.sx, src.sy, src.sw, src.sh,
     drawX, drawY, dw, dh, !p.facingRight,
   );
   if (!used) {
-    drawPlayerPlaceholder(ctx, p, key);
+    drawPlayerSpriteFallback(ctx, p, key, drawX, drawY, dw, dh);
+  } else {
+    ctx.save();
+    ctx.lineJoin    = 'round';
+    ctx.strokeStyle = READABILITY_PLAYER_STROKE.color;
+    ctx.lineWidth   = READABILITY_PLAYER_STROKE.w;
+    ctx.strokeRect(
+      drawX - 0.5, drawY - 0.5, dw + 1, dh + 1,
+    );
+    ctx.restore();
   }
 
-  if (p.attackActive) {
+  if (state.debug && p.attackActive) {
     drawPlayerAttackGizmos(ctx, p);
   }
-  if (p.comboIndex > 0 && p.state === 'attack') {
+  if (state.debug && p.comboIndex > 0 && p.state === 'attack') {
     for (let i = 0; i < p.comboIndex; i++) {
       ctx.fillStyle = COLOR_PLAYER_ATK;
       ctx.beginPath();
@@ -57,13 +79,30 @@ export function drawPlayer(ctx, state) {
   }
 }
 
-function drawPlayerPlaceholder(ctx, p, _key) {
+/**
+ * Blit first sheet cell; if that fails, old rect placeholder (no sheet).
+ */
+function drawPlayerSpriteFallback(ctx, p, _key, drawX, drawY, dw, dh) {
+  const img = getPlayerSheet();
+  const { frameW, frameH } = PLAYER_SHEET;
+  if (img && drawImageFrame(ctx, img, 0, 0, frameW, frameH, drawX, drawY, dw, dh, !p.facingRight)) {
+    ctx.save();
+    ctx.lineJoin    = 'round';
+    ctx.strokeStyle = READABILITY_PLAYER_STROKE.color;
+    ctx.lineWidth   = READABILITY_PLAYER_STROKE.w;
+    ctx.strokeRect(drawX - 0.5, drawY - 0.5, dw + 1, dh + 1);
+    ctx.restore();
+    return;
+  }
   let color = COLOR_PLAYER;
   if (p.state === 'hurt' || p.hp <= 0) color = '#ef9a9a';
   if (p.state === 'dodge') color = '#80deea';
   if (p.state === 'dead') color = '#555';
   ctx.fillStyle = color;
   ctx.fillRect(p.x, p.y, p.w, p.h);
+  ctx.strokeStyle = READABILITY_PLAYER_STROKE.color;
+  ctx.lineWidth   = READABILITY_PLAYER_STROKE.w;
+  ctx.strokeRect(p.x - 0.5, p.y - 0.5, p.w + 1, p.h + 1);
   ctx.fillStyle = '#0d1117';
   const eyeX = p.facingRight ? p.x + p.w - 8 : p.x + 4;
   ctx.fillRect(eyeX, p.y + 10, 6, 6);
@@ -96,13 +135,30 @@ export function drawEnemies(ctx, state) {
       continue;
     }
     if (e.state === 'telegraph' && e.alive) {
-      ctx.fillStyle = COLOR_SLIME_TEL;
-      ctx.globalAlpha = 0.25 + 0.25 * Math.sin(state.tick * 0.12);
-      ctx.fillRect(e.x - 8, e.y - 8, e.w + 16, e.h + 16);
+      const pad  = SLIME_TEL_PAD_PX;
+      const x0   = e.x - pad;
+      const y0   = e.y - pad;
+      const wBox = e.w + pad * 2;
+      const hBox = e.h + pad * 2;
+      const pulse = SLIME_TEL_PULSE.min + SLIME_TEL_PULSE.range * Math.sin(
+        state.tick * SLIME_TEL_SINE,
+      );
+      ctx.save();
+      ctx.fillStyle  = READABILITY_TEL_INNER_DARK;
+      ctx.globalAlpha = 0.9;
+      ctx.fillRect(x0, y0, wBox, hBox);
       ctx.globalAlpha = 1;
-      ctx.fillStyle = COLOR_SLIME_TEL;
-      ctx.font = 'bold 14px monospace';
-      ctx.textAlign = 'center';
+      ctx.fillStyle   = COLOR_SLIME_TEL;
+      ctx.globalAlpha = pulse;
+      ctx.fillRect(x0, y0, wBox, hBox);
+      ctx.globalAlpha = 1;
+      ctx.lineWidth   = READABILITY_TEL_STROKE.w;
+      ctx.strokeStyle = READABILITY_TEL_STROKE.color;
+      ctx.strokeRect(x0 - 0.5, y0 - 0.5, wBox + 1, hBox + 1);
+      ctx.restore();
+      ctx.fillStyle     = COLOR_SLIME_TEL;
+      ctx.font          = SLIME_TEL_FONT;
+      ctx.textAlign     = 'center';
       ctx.fillText('!', e.x + e.w / 2, e.y - 12);
     }
     const src  = resolveSlimeTextureRect(e, state);
@@ -117,34 +173,75 @@ export function drawEnemies(ctx, state) {
     const squashY = e.y + (e.h - squashH);
     const drawX   = squashX + (squashW - sDest.w) * 0.5;
     const drawY   = squashY + squashH - sDest.h;
+    const footY   = e.y + e.h + READABILITY_SLIME_SHADOW.offsetY;
+    const sRadX   = Math.max(6, e.w * READABILITY_SLIME_SHADOW.halfWMult);
+    drawGroundShadow(
+      ctx, e.x + e.w * 0.5, footY, sRadX, READABILITY_SLIME_SHADOW.ry,
+      READABILITY_SLIME_SHADOW.color,
+    );
 
     const used = drawImageFrame(
       ctx, img, src.sx, src.sy, src.sw, src.sh,
       drawX, drawY, sDest.w, sDest.h, !e.facingRight,
     );
     if (!used) {
-      let color = COLOR_SLIME;
-      if (e.state === 'hurt') {
-        color = COLOR_SLIME_HIT;
+      const fW = SLIME_SHEET.frameW;
+      const fH = SLIME_SHEET.frameH;
+      if (img && drawImageFrame(ctx, img, 0, 0, fW, fH, drawX, drawY, sDest.w, sDest.h, !e.facingRight)) {
+        ctx.save();
+        ctx.lineJoin     = 'round';
+        ctx.strokeStyle  = READABILITY_SLIME_STROKE.color;
+        ctx.lineWidth    = READABILITY_SLIME_STROKE.w;
+        ctx.strokeRect(drawX - 0.5, drawY - 0.5, sDest.w + 1, sDest.h + 1);
+        ctx.restore();
+      } else {
+        let color = COLOR_SLIME;
+        if (e.state === 'hurt') {
+          color = COLOR_SLIME_HIT;
+        }
+        if (e.state === 'chase') {
+          color = '#81c784';
+        }
+        if (!e.alive) {
+          color = '#2e3d2e';
+        }
+        ctx.fillStyle = color;
+        ctx.fillRect(squashX, squashY, squashW, squashH);
+        ctx.fillStyle = '#0d1117';
+        const ew = 5, eh = 5;
+        const eyeOffX = e.facingRight ? e.w - 10 : 4;
+        ctx.fillRect(e.x + eyeOffX,      squashY + 6, ew, eh);
+        ctx.fillRect(e.x + eyeOffX + 8,  squashY + 6, ew, eh);
+        ctx.strokeStyle = READABILITY_SLIME_STROKE.color;
+        ctx.lineWidth   = READABILITY_SLIME_STROKE.w;
+        ctx.strokeRect(squashX - 0.5, squashY - 0.5, squashW + 1, squashH + 1);
       }
-      if (e.state === 'chase') {
-        color = '#81c784';
-      }
-      if (!e.alive) {
-        color = '#2e3d2e';
-      }
-      ctx.fillStyle = color;
-      ctx.fillRect(squashX, squashY, squashW, squashH);
-      ctx.fillStyle = '#0d1117';
-      const ew = 5, eh = 5;
-      const eyeOffX = e.facingRight ? e.w - 10 : 4;
-      ctx.fillRect(e.x + eyeOffX,      squashY + 6, ew, eh);
-      ctx.fillRect(e.x + eyeOffX + 8,  squashY + 6, ew, eh);
+    } else {
+      ctx.save();
+      ctx.lineJoin     = 'round';
+      ctx.strokeStyle  = READABILITY_SLIME_STROKE.color;
+      ctx.lineWidth    = READABILITY_SLIME_STROKE.w;
+      ctx.strokeRect(drawX - 0.5, drawY - 0.5, sDest.w + 1, sDest.h + 1);
+      ctx.restore();
     }
     if (e.alive) {
       drawEnemyHPBar(ctx, e);
     }
   }
+}
+
+/**
+ * Soft oval on the “ground” under a character (world space).
+ * @param {number} cx - center x
+ * @param {number} y  - center y of ellipse
+ */
+function drawGroundShadow(ctx, cx, y, halfW, ry, color) {
+  ctx.save();
+  ctx.fillStyle   = color;
+  ctx.beginPath();
+  ctx.ellipse(cx, y, Math.max(2, halfW), ry, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
 }
 
 function drawEnemyHPBar(ctx, e) {

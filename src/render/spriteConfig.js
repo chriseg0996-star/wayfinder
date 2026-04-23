@@ -1,51 +1,60 @@
 // ============================================================
-// Sheet layout: one horizontal strip per **anim row** (y = row * frameH).
-// `animClips.js` maps gameplay → frame index; loop = tick + fps, one-shots
-// from timers. Tweak `frames` / `fps` when art lands; frameW/ frameH = PNG.
+// Sheet view used by animClips + entityRender. Row + playback
+// numbers are owned by Constants (PLAYER_ANIM / SLIME_ANIM / *_SHEET_PX).
 // ============================================================
 
-import { FIXED_DT, PLAYER_W, PLAYER_H, SLIME_W, SLIME_H } from '../config/Constants.js';
+import {
+  PLAYER_W, PLAYER_H, SLIME_W, SLIME_H,
+  PLAYER_RENDER_SCALE,
+  PLAYER_SHEET_PX, SLIME_SHEET_PX,
+  PLAYER_ANIM, SLIME_ANIM, spriteLoopFrameIndex,
+} from '../config/Constants.js';
 
 export const PLAYER_SHEET = {
-  frameW: 32,
-  frameH: 48,
-  rows: {
-    idle:     { row: 0, frames: 4, fps: 5 },
-    run:      { row: 1, frames: 6, fps: 8 },
-    jump:     { row: 2, frames: 3, fps: 4 },
-    fall:     { row: 3, frames: 3, fps: 4 },
-    attack_1: { row: 4, frames: 3, fps: 12 },
-    attack_2: { row: 5, frames: 3, fps: 12 },
-    attack_3: { row: 6, frames: 3, fps: 10 },
-    dodge:    { row: 7, frames: 2, fps: 10 },
-    hurt:     { row: 8, frames: 2, fps: 8 },
-  },
-  dest: { w: PLAYER_W, h: PLAYER_H },
+  frameW: PLAYER_SHEET_PX.frameW,
+  frameH: PLAYER_SHEET_PX.frameH,
+  rows:   PLAYER_ANIM,
+  // Render-only scale; world collision still uses PLAYER_W / PLAYER_H.
+  dest:   { w: Math.round(PLAYER_W * PLAYER_RENDER_SCALE), h: Math.round(PLAYER_H * PLAYER_RENDER_SCALE) },
 };
 
 export const SLIME_SHEET = {
-  frameW: 32,
-  frameH: 24,
-  rows: {
-    idle:      { row: 0, frames: 2, fps: 4 },
-    move:      { row: 1, frames: 4, fps: 6 },
-    telegraph: { row: 2, frames: 2, fps: 6 },
-    attack:    { row: 3, frames: 3, fps: 8 },
-    hurt:      { row: 4, frames: 2, fps: 6 },
-    death:     { row: 5, frames: 4, fps: 6 },
-  },
-  dest: { w: SLIME_W, h: SLIME_H },
+  frameW: SLIME_SHEET_PX.frameW,
+  frameH: SLIME_SHEET_PX.frameH,
+  rows:   SLIME_ANIM,
+  dest:   { w: SLIME_W, h: SLIME_H },
 };
 
 /**
+ * Minimum texture size (px) for a strip that matches `PLAYER_ANIM` / `SLIME_ANIM`.
+ * Row `r` starts at y = r * frameH; frame `f` in that row at x = f * frameW (no inter-row padding).
+ * Sheet may be larger; smaller fails validation on load (see spriteRegistry).
+ * @param {{ frameW: number, frameH: number }} sheetPx
+ * @param {Record<string, { row: number, frames: number }>} anim
+ * @returns {{ w: number, h: number }}
+ */
+export function getMinSheetPixelSize(sheetPx, anim) {
+  let maxW = 0;
+  let maxRow = 0;
+  for (const k of Object.keys(anim)) {
+    const s = anim[k];
+    maxW    = Math.max(maxW, s.frames * sheetPx.frameW);
+    maxRow  = Math.max(maxRow, s.row);
+  }
+  return { w: maxW, h: (maxRow + 1) * sheetPx.frameH };
+}
+
+/** Authoritative min size for `assets/sprites/player.png` (see assets/sprites/README.md). */
+export const PLAYER_SHEET_PIXEL_SIZE = getMinSheetPixelSize(PLAYER_SHEET_PX, PLAYER_ANIM);
+
+/** Authoritative min size for `assets/sprites/slime.png`. */
+export const SLIME_SHEET_PIXEL_SIZE = getMinSheetPixelSize(SLIME_SHEET_PX, SLIME_ANIM);
+
+/**
+ * Looping row frame index. Delegates to `spriteLoopFrameIndex` in Constants.
  * @param {number} tick
- * @param {{ frames: number, fps: number }} spec
+ * @param {import('../config/Constants').SpriteRow} spec
  */
 export function animFrameIndex(tick, spec) {
-  if (!spec || spec.frames < 1) {
-    return 0;
-  }
-  const tSec = tick * FIXED_DT;
-  const idx  = Math.floor(tSec * spec.fps) % spec.frames;
-  return Math.max(0, Math.min(spec.frames - 1, idx));
+  return spriteLoopFrameIndex(tick, spec);
 }

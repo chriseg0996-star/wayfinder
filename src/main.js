@@ -8,8 +8,12 @@ import { createGameState } from './state/GameState.js';
 import { Game }            from './core/Game.js';
 import { assertGameStateTemplateSerializable, assertLiveStateSerializableWhenStripped } from './dev/assertSerializable.js';
 import { loadSpriteRegistry } from './render/spriteRegistry.js';
+import { loadParallaxLayers } from './render/backgroundLayers.js';
+import { loadWorldTiles } from './systems/Render.js';
 
 loadSpriteRegistry();
+loadParallaxLayers();
+loadWorldTiles();
 const state  = createGameState();
 const canvas = document.getElementById('game-canvas');
 const game   = new Game(canvas, state);

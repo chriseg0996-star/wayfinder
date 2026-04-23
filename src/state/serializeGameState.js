@@ -1,20 +1,41 @@
 // ============================================================
-// Wire / save snapshot: plain data only, no per-frame transients.
+// Wire snapshot (JSON / dev export): plain data, no runtime sim noise.
 //
-// During simulation, entities may hold fields whose names start with
-// "_" (e.g. player._gravityScale, enemies[]._hitThisSwing). Those are
-// **runtime-only** and are omitted from getSerializableGameState().
+// 1) Keys starting with `_` on any object — engine-only
+//    (e.g. player._gravityScale, enemies[]._hitThisSwing). Omitted.
+//
+// 2) WIRE_OMIT_* — per-key lists below. Live `state` in memory still holds
+//    full sim; this function returns a **durable slice** for saves / net.
+//    See GameState.js header.
 // ============================================================
 
+/** @type {Set<string>} */
+const WIRE_OMIT_ROOT = new Set(['hitstop', 'debug']);
+
+/** FSM, buffers, timers — not part of a wire checkpoint. */
+const WIRE_OMIT_PLAYER = new Set([
+  'grounded', 'coyoteTimer', 'jumpBuffer', 'wasGrounded', 'jumpVarActive',
+  'dodgeTimer', 'dodgeCooldown', 'dodgeDir', 'iframeTimer', 'dodgeBuffer',
+  'comboIndex', 'attackTimer', 'attackActive', 'comboWindow', 'attackInputCooldown',
+  'hitstopTimer', 'hurtTimer', 'state',
+]);
+
+/** AI / combat timing / anim bookkeeping — not on wire. */
+const WIRE_OMIT_ENEMY = new Set([
+  'state', 'patrolDir', 'patrolTimer', 'chaseTimer', 'telegraphTimer', 'attackTimer',
+  'hurtTimer', 'hitstopTimer', 'deathStartTick', 'grounded',
+]);
+
 /**
- * Returns a deep plain-data copy of `state` with all `_*` properties
- * removed at every object level. Safe to JSON.stringify for saves / net.
+ * Deep plain-data copy safe for JSON.stringify. Strips `_*` and WIRE_OMIT lists.
  * Does not mutate the live `state` object.
  * @param {object} state
  * @returns {object}
  */
 export function getSerializableGameState(state) {
-  return stripUnderscoreKeys(state);
+  const copy = stripUnderscoreKeys(state);
+  applyWireOmit(copy);
+  return copy;
 }
 
 function stripUnderscoreKeys(value) {
@@ -32,6 +53,29 @@ function stripUnderscoreKeys(value) {
     out[k] = stripUnderscoreKeys(value[k]);
   }
   return out;
+}
+
+/**
+ * @param {object} data - already underscore-stripped root state
+ */
+function applyWireOmit(data) {
+  for (const k of WIRE_OMIT_ROOT) {
+    if (k in data) delete data[k];
+  }
+  if (data.player && typeof data.player === 'object') {
+    for (const k of WIRE_OMIT_PLAYER) {
+      if (k in data.player) delete data.player[k];
+    }
+  }
+  if (Array.isArray(data.enemies)) {
+    for (const e of data.enemies) {
+      if (e && typeof e === 'object') {
+        for (const k of WIRE_OMIT_ENEMY) {
+          if (k in e) delete e[k];
+        }
+      }
+    }
+  }
 }
 
 /**
