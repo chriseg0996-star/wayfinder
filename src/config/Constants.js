@@ -134,6 +134,8 @@ export const PLAYER_HURT_IFRAMES  = 0.58;  // iframes after taking a hit
 // --- Enemy — slime ---
 export const SLIME_W              = 32;
 export const SLIME_H              = 24;
+/** Render-only scale on slime sprite draw size (physics/hitbox stay on SLIME_W/H). */
+export const SLIME_RENDER_SCALE   = 1.15;
 export const SLIME_MAX_HP         = 30;
 export const SLIME_PATROL_SPEED   = 60;
 export const SLIME_CHASE_SPEED    = 130;
@@ -160,6 +162,11 @@ export const SLIME_LOSE_CHASE_MULT = 1.38;
 // --- Enemy — ranged (simple keep-distance + telegraph + projectile) ---
 export const RANGED_W               = 24;
 export const RANGED_H               = 40;
+/** Render-only scale on ranged sprite draw size (physics/hitbox stay on RANGED_W/H). */
+export const RANGED_RENDER_SCALE    = 2.175;
+/** Render-only positional nudge for ranged sprite anchoring. */
+export const RANGED_SPRITE_OFFSET_X = 0;
+export const RANGED_SPRITE_OFFSET_Y = 2;
 export const RANGED_MAX_HP          = 20;
 export const RANGED_AGGRO_RANGE     = 340;
 export const RANGED_KEEP_MIN        = 130;
@@ -176,6 +183,11 @@ export const RANGED_PROJECTILE_DAMAGE = 7;
 // --- Enemy — heavy charger (commits, then punishable) ---
 export const HEAVY_W                = 40;
 export const HEAVY_H                = 52;
+/** Render-only scale on heavy sprite draw size (physics/hitbox stay on HEAVY_W/H). */
+export const HEAVY_RENDER_SCALE     = 2.0;
+/** Render-only positional nudge for heavy sprite anchoring. */
+export const HEAVY_SPRITE_OFFSET_X  = 0;
+export const HEAVY_SPRITE_OFFSET_Y  = 2;
 export const HEAVY_MAX_HP           = 72;
 export const HEAVY_AGGRO_RANGE      = 300;
 export const HEAVY_MOVE_SPEED       = 68;
@@ -266,6 +278,8 @@ export const CAM_DEADZONE_Y  = 60;    // px vertical deadzone
  */
 export const PLAYER_SHEET_PX  = { frameW: 32, frameH: 48 };
 export const SLIME_SHEET_PX   = { frameW: 32, frameH: 24 };
+export const ARCHER_SHEET_PX  = { frameW: 32, frameH: 48 };
+export const BRUTE_SHEET_PX   = { frameW: 32, frameH: 48 };
 
 // Locomotion labels: only `idle` vs `run` on ground; jump vs `fall` in air.
 // Tunes when we call it `run` for animation, not max speed (physics unchanged).
@@ -299,6 +313,32 @@ export const SLIME_ANIM = {
   attack:    { row: 3, frames: 3, fps: 8, mode: 'oneShot' },
   hurt:      { row: 4, frames: 2, fps: 6, mode: 'oneShot' },
   death:     { row: 5, frames: 4, fps: 6, mode: 'oneShot' },
+};
+
+/**
+ * Ranged enemy (archer) sprite rows.
+ * Uses telegraph timer/cooldown in animClips for one-shots.
+ * @type {Record<string, SpriteRow>}
+ */
+export const ARCHER_ANIM = {
+  idle:  { row: 0, frames: 4, fps: 5, mode: 'loop' },
+  move:  { row: 1, frames: 7, fps: 7, mode: 'loop' },
+  aim:   { row: 2, frames: 3, fps: 8, mode: 'oneShot' },
+  shoot: { row: 3, frames: 6, fps: 12, mode: 'oneShot' },
+  hurt:  { row: 4, frames: 3, fps: 8, mode: 'oneShot' },
+  death: { row: 5, frames: 7, fps: 8, mode: 'oneShot' },
+};
+
+/**
+ * Heavy enemy (brute) sprite rows.
+ * @type {Record<string, SpriteRow>}
+ */
+export const BRUTE_ANIM = {
+  idle:   { row: 0, frames: 4, fps: 4, mode: 'loop' },
+  move:   { row: 1, frames: 6, fps: 6, mode: 'loop' },
+  attack: { row: 2, frames: 6, fps: 8, mode: 'oneShot' },
+  hurt:   { row: 3, frames: 3, fps: 7, mode: 'oneShot' },
+  death:  { row: 4, frames: 6, fps: 6, mode: 'oneShot' },
 };
 
 /** One cell = one frame duration in seconds. */

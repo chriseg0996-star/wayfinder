@@ -4,10 +4,10 @@
 // ============================================================
 
 import {
-  PLAYER_W, PLAYER_H, SLIME_W, SLIME_H,
-  PLAYER_RENDER_SCALE,
-  PLAYER_SHEET_PX, SLIME_SHEET_PX,
-  PLAYER_ANIM, SLIME_ANIM, spriteLoopFrameIndex,
+  PLAYER_W, PLAYER_H, SLIME_W, SLIME_H, RANGED_W, RANGED_H, HEAVY_W, HEAVY_H,
+  PLAYER_RENDER_SCALE, SLIME_RENDER_SCALE, RANGED_RENDER_SCALE, HEAVY_RENDER_SCALE,
+  PLAYER_SHEET_PX, SLIME_SHEET_PX, ARCHER_SHEET_PX, BRUTE_SHEET_PX,
+  PLAYER_ANIM, SLIME_ANIM, ARCHER_ANIM, BRUTE_ANIM, spriteLoopFrameIndex,
 } from '../config/Constants.js';
 
 export const PLAYER_SHEET = {
@@ -22,7 +22,24 @@ export const SLIME_SHEET = {
   frameW: SLIME_SHEET_PX.frameW,
   frameH: SLIME_SHEET_PX.frameH,
   rows:   SLIME_ANIM,
-  dest:   { w: SLIME_W, h: SLIME_H },
+  // Render-only scale; world collision still uses SLIME_W / SLIME_H.
+  dest:   { w: Math.round(SLIME_W * SLIME_RENDER_SCALE), h: Math.round(SLIME_H * SLIME_RENDER_SCALE) },
+};
+
+export const ARCHER_SHEET = {
+  frameW: ARCHER_SHEET_PX.frameW,
+  frameH: ARCHER_SHEET_PX.frameH,
+  rows:   ARCHER_ANIM,
+  // Render-only scale; world collision still uses RANGED_W / RANGED_H.
+  dest:   { w: Math.round(RANGED_W * RANGED_RENDER_SCALE), h: Math.round(RANGED_H * RANGED_RENDER_SCALE) },
+};
+
+export const BRUTE_SHEET = {
+  frameW: BRUTE_SHEET_PX.frameW,
+  frameH: BRUTE_SHEET_PX.frameH,
+  rows:   BRUTE_ANIM,
+  // Render-only scale; world collision still uses HEAVY_W / HEAVY_H.
+  dest:   { w: Math.round(HEAVY_W * HEAVY_RENDER_SCALE), h: Math.round(HEAVY_H * HEAVY_RENDER_SCALE) },
 };
 
 /**
@@ -49,6 +66,11 @@ export const PLAYER_SHEET_PIXEL_SIZE = getMinSheetPixelSize(PLAYER_SHEET_PX, PLA
 
 /** Authoritative min size for `assets/sprites/slime.png`. */
 export const SLIME_SHEET_PIXEL_SIZE = getMinSheetPixelSize(SLIME_SHEET_PX, SLIME_ANIM);
+
+/** Authoritative min size for `assets/sprites/archer.png`. */
+export const ARCHER_SHEET_PIXEL_SIZE = getMinSheetPixelSize(ARCHER_SHEET_PX, ARCHER_ANIM);
+/** Authoritative min size for `assets/sprites/brute.png`. */
+export const BRUTE_SHEET_PIXEL_SIZE = getMinSheetPixelSize(BRUTE_SHEET_PX, BRUTE_ANIM);
 
 /**
  * Looping row frame index. Delegates to `spriteLoopFrameIndex` in Constants.

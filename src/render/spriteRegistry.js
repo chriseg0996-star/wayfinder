@@ -5,14 +5,18 @@
 // ============================================================
 
 import {
-  PLAYER_SHEET, SLIME_SHEET,
-  PLAYER_SHEET_PIXEL_SIZE, SLIME_SHEET_PIXEL_SIZE,
+  PLAYER_SHEET, SLIME_SHEET, ARCHER_SHEET, BRUTE_SHEET,
+  PLAYER_SHEET_PIXEL_SIZE, SLIME_SHEET_PIXEL_SIZE, ARCHER_SHEET_PIXEL_SIZE, BRUTE_SHEET_PIXEL_SIZE,
 } from './spriteConfig.js';
 
 /** @type {CanvasImageSource | null} */
 let playerSheet = null;
 /** @type {CanvasImageSource | null} */
 let slimeSheet  = null;
+/** @type {CanvasImageSource | null} */
+let archerSheet = null;
+/** @type {CanvasImageSource | null} */
+let bruteSheet  = null;
 
 /**
  * @returns {CanvasImageSource | null}
@@ -29,6 +33,19 @@ export function getSlimeSheet() {
 }
 
 /**
+ * @returns {CanvasImageSource | null}
+ */
+export function getArcherSheet() {
+  return archerSheet;
+}
+/**
+ * @returns {CanvasImageSource | null}
+ */
+export function getBruteSheet() {
+  return bruteSheet;
+}
+
+/**
  * @param {CanvasImageSource} src
  */
 export function registerPlayerSheet(src) {
@@ -40,6 +57,19 @@ export function registerPlayerSheet(src) {
  */
 export function registerSlimeSheet(src) {
   slimeSheet = src;
+}
+
+/**
+ * @param {CanvasImageSource} src
+ */
+export function registerArcherSheet(src) {
+  archerSheet = src;
+}
+/**
+ * @param {CanvasImageSource} src
+ */
+export function registerBruteSheet(src) {
+  bruteSheet = src;
 }
 
 /**
@@ -67,8 +97,8 @@ function makePlaceholderStripCanvas(sheet, id) {
   if (!g) {
     return c;
   }
-  const baseH = id === 'player' ? 210 : 130;
-  const entityId = id === 'player' ? 'player' : 'slime';
+  const baseH = id === 'player' ? 210 : id === 'archer' ? 95 : id === 'brute' ? 28 : 130;
+  const entityId = id === 'player' ? 'player' : id === 'archer' ? 'archer' : id === 'brute' ? 'brute' : 'slime';
   for (const k of keys) {
     const spec = rows[k];
     for (let f = 0; f < spec.frames; f++) {
@@ -100,6 +130,10 @@ function drawAnimPlaceholder(g, x, y, fw, fh, ent, key, f, nF) {
   g.lineJoin = 'round';
   if (ent === 'player') {
     drawPlayerAnimPlaceholder(g, fw, fh, key, f, nF);
+  } else if (ent === 'archer') {
+    drawArcherAnimPlaceholder(g, fw, fh, key, f, nF);
+  } else if (ent === 'brute') {
+    drawBruteAnimPlaceholder(g, fw, fh, key, f, nF);
   } else {
     drawSlimeAnimPlaceholder(g, fw, fh, key, f, nF);
   }
@@ -285,8 +319,98 @@ function drawSlimeAnimPlaceholder(g, fw, fh, key, f, nF) {
   }
 }
 
+/** @param {CanvasRenderingContext2D} g */
+function drawArcherAnimPlaceholder(g, fw, fh, key, f, nF) {
+  const c = 3;
+  const w = fw - c * 2;
+  const h = fh - c * 2;
+  g.translate(c, c);
+  g.globalAlpha = 0.58;
+  g.fillStyle = 'rgba(210, 230, 190, 0.65)';
+  g.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+  if (key === 'idle') {
+    const by = Math.sin((f / Math.max(1, nF)) * Math.PI * 2) * 1.8;
+    g.fillRect(w * 0.24, h * 0.16 + by, w * 0.46, h * 0.62);
+    return;
+  }
+  if (key === 'move') {
+    const sx = (f % 2 ? 1 : -1) * 2;
+    g.fillRect(w * 0.24 + sx, h * 0.18, w * 0.46, h * 0.58);
+    return;
+  }
+  if (key === 'aim' || key === 'shoot') {
+    g.fillRect(w * 0.22, h * 0.2, w * 0.42, h * 0.56);
+    g.fillStyle = 'rgba(255, 240, 190, 0.8)';
+    g.fillRect(w * 0.42, h * 0.36, w * 0.45, 2);
+    if (key === 'shoot') {
+      g.globalAlpha = 0.6;
+      g.fillRect(w * 0.82 + f * 1.5, h * 0.35, 4, 3);
+    }
+    return;
+  }
+  if (key === 'hurt') {
+    g.fillStyle = 'rgba(255, 190, 190, 0.7)';
+    g.fillRect(w * 0.18, h * 0.18, w * 0.5, h * 0.6);
+    return;
+  }
+  if (key === 'death') {
+    const s = Math.max(0.35, 1 - f * 0.12);
+    g.save();
+    g.translate(w * 0.5, h * 0.72);
+    g.scale(1, s);
+    g.translate(-w * 0.5, -h * 0.72);
+    g.fillStyle = 'rgba(120, 120, 120, 0.65)';
+    g.fillRect(w * 0.14, h * 0.56, w * 0.72, h * 0.2);
+    g.restore();
+    return;
+  }
+  g.fillRect(w * 0.24, h * 0.18, w * 0.46, h * 0.58);
+}
+
+/** @param {CanvasRenderingContext2D} g */
+function drawBruteAnimPlaceholder(g, fw, fh, key, f, nF) {
+  const c = 2;
+  const w = fw - c * 2;
+  const h = fh - c * 2;
+  g.translate(c, c);
+  g.globalAlpha = 0.6;
+  g.fillStyle = 'rgba(205, 190, 170, 0.68)';
+  if (key === 'idle') {
+    g.fillRect(w * 0.18, h * 0.16, w * 0.64, h * 0.66);
+    return;
+  }
+  if (key === 'move') {
+    const sx = (f % 2 ? 1 : -1) * 1.8;
+    g.fillRect(w * 0.16 + sx, h * 0.18, w * 0.66, h * 0.64);
+    return;
+  }
+  if (key === 'attack') {
+    g.fillRect(w * 0.16, h * 0.18, w * 0.62, h * 0.62);
+    g.fillStyle = 'rgba(255,220,180,0.7)';
+    g.fillRect(w * 0.62 + f * 1.2, h * 0.58, w * 0.26, 3);
+    return;
+  }
+  if (key === 'hurt') {
+    g.fillStyle = 'rgba(255,170,170,0.72)';
+    g.fillRect(w * 0.18, h * 0.2, w * 0.64, h * 0.62);
+    return;
+  }
+  if (key === 'death') {
+    const s = Math.max(0.35, 1 - f * 0.13);
+    g.save();
+    g.translate(w * 0.5, h * 0.75);
+    g.scale(1, s);
+    g.translate(-w * 0.5, -h * 0.75);
+    g.fillStyle = 'rgba(130,120,115,0.7)';
+    g.fillRect(w * 0.08, h * 0.6, w * 0.84, h * 0.2);
+    g.restore();
+    return;
+  }
+  g.fillRect(w * 0.16, h * 0.18, w * 0.64, h * 0.64);
+}
+
 /**
- * Placeholders first, then try PNG; load replaces the strip when ready.
+ * Placeholders only. PNG sheets are intentionally disabled.
  * @returns {void}
  */
 export function loadSpriteRegistry() {
@@ -295,12 +419,10 @@ export function loadSpriteRegistry() {
   }
   registerPlayerSheet(makePlaceholderStripCanvas(PLAYER_SHEET, 'player'));
   registerSlimeSheet(makePlaceholderStripCanvas(SLIME_SHEET, 'slime'));
+  registerArcherSheet(makePlaceholderStripCanvas(ARCHER_SHEET, 'archer'));
+  registerBruteSheet(makePlaceholderStripCanvas(BRUTE_SHEET, 'brute'));
 
-  if (typeof Image === 'undefined') {
-    return;
-  }
-  tryLoad('assets/sprites/player.png', registerPlayerSheet, 'player.png', PLAYER_SHEET_PIXEL_SIZE);
-  tryLoad('assets/sprites/slime.png', registerSlimeSheet, 'slime.png', SLIME_SHEET_PIXEL_SIZE);
+  // Keep generated placeholders as the active visuals.
 }
 
 /**

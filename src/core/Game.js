@@ -104,9 +104,10 @@ export class Game {
     updateEnemies(state);
     updateCamera(state);
 
+    const combatants = state.enemies.filter(e => e.type !== 'projectile');
     if (state.player.state === 'dead' || state.player.hp <= 0) {
       state.roundState = 'lose';
-    } else if (state.enemies.filter(e => e.type !== 'projectile').every(e => !e.alive)) {
+    } else if (combatants.length > 0 && combatants.every(e => !e.alive)) {
       state.roundState = 'win';
     }
   }

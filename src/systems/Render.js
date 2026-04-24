@@ -66,6 +66,7 @@ export function render(ctx, state, alpha) {
 
   drawPlatforms(ctx, state);
   drawHitImpactVfx(ctx, state);
+  drawDamageNumbers(ctx, state);
   drawEnemies(ctx, state);
   drawPlayer(ctx, state);
 
@@ -92,6 +93,21 @@ function drawHitImpactVfx(ctx, state) {
     ctx.fillRect(v.x - 1, v.y + (r - 3), 2, 6);
     ctx.fillRect(v.x - (r + 3), v.y - 1, 6, 2);
     ctx.fillRect(v.x + (r - 3), v.y - 1, 6, 2);
+    ctx.restore();
+  }
+}
+
+function drawDamageNumbers(ctx, state) {
+  const arr = state._damageNumbers;
+  if (!Array.isArray(arr) || arr.length === 0) return;
+  for (const d of arr) {
+    const t = Math.max(0, Math.min(1, d.life / d.maxLife));
+    ctx.save();
+    ctx.globalAlpha = t;
+    ctx.fillStyle = d.crit ? '#E7C77A' : '#FFFFFF';
+    ctx.font = `bold ${d.crit ? 18 : 14}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(String(d.amount), Math.round(d.x), Math.round(d.y));
     ctx.restore();
   }
 }

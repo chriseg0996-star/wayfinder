@@ -49,8 +49,8 @@ export function emitAttackSwing(state, actor) {
  * @param {number} x
  * @param {number} y
  */
-export function emitEnemyHurt(state, x, y) {
-  emitCombatEvent(state, { type: 'enemy_hurt', x, y });
+export function emitEnemyHurt(state, x, y, amount = 0, crit = false) {
+  emitCombatEvent(state, { type: 'enemy_hurt', x, y, amount, crit });
 }
 
 /**
@@ -66,6 +66,7 @@ export function updateCombatFeedback(state, dt = FIXED_DT) {
   if (!state._hitVfx) state._hitVfx = [];
   if (!state._audioQueue) state._audioQueue = [];
   if (!state._shake) state._shake = { x: 0, y: 0, power: 0 };
+  if (!state._damageNumbers) state._damageNumbers = [];
 
   for (const ev of state._combatEvents) {
     if (!ev || !ev.type) continue;
@@ -92,6 +93,14 @@ export function updateCombatFeedback(state, dt = FIXED_DT) {
       continue;
     }
     if (ev.type === 'enemy_hurt') {
+      state._damageNumbers.push({
+        x: ev.x ?? 0,
+        y: ev.y ?? 0,
+        amount: Math.max(0, Math.round(ev.amount ?? 0)),
+        crit: Boolean(ev.crit),
+        life: 0.6,
+        maxLife: 0.6,
+      });
       state._audioQueue.push({ cue: 'enemy_hurt', x: ev.x, y: ev.y });
     }
   }
@@ -118,6 +127,12 @@ export function updateCombatFeedback(state, dt = FIXED_DT) {
     const v = state._hitVfx[i];
     v.life -= dt;
     if (v.life <= 0) state._hitVfx.splice(i, 1);
+  }
+  for (let i = state._damageNumbers.length - 1; i >= 0; i--) {
+    const d = state._damageNumbers[i];
+    d.life -= dt;
+    d.y -= 20 * dt;
+    if (d.life <= 0) state._damageNumbers.splice(i, 1);
   }
 }
 

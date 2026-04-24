@@ -66,7 +66,13 @@ function applyDamageToEnemy(state, e, {
     e.deathStartTick = state.tick;
     if (wasAlive) awardSlimeKillXp(state);
   }
-  emitEnemyHurt(state, e.x + e.w * 0.5, e.y + e.h * 0.5);
+  emitEnemyHurt(
+    state,
+    e.x + e.w * 0.5,
+    e.y + e.h * 0.5,
+    amount,
+    amount >= 14,
+  );
   if (applyHitstop) {
     const wasKill = !e.alive;
     const shakePower = wasKill

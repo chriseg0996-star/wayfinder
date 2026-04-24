@@ -13,11 +13,13 @@ import {
   READABILITY_TEL_STROKE, READABILITY_TEL_INNER_DARK,
   COLOR_IFRAME,
   ATTACK_RANGE_W, ATTACK_RANGE_H,
+  RANGED_SPRITE_OFFSET_X, RANGED_SPRITE_OFFSET_Y,
+  HEAVY_SPRITE_OFFSET_X, HEAVY_SPRITE_OFFSET_Y,
 } from '../config/Constants.js';
 import { getPlayerAnimKey } from './animKeys.js';
-import { PLAYER_SHEET, SLIME_SHEET } from './spriteConfig.js';
-import { resolvePlayerTextureRect, resolveSlimeTextureRect, shouldDrawSlime } from './animClips.js';
-import { getPlayerSheet, getSlimeSheet } from './spriteRegistry.js';
+import { PLAYER_SHEET, SLIME_SHEET, ARCHER_SHEET, BRUTE_SHEET } from './spriteConfig.js';
+import { resolvePlayerTextureRect, resolveSlimeTextureRect, resolveRangedTextureRect, resolveHeavyTextureRect, shouldDrawSlime } from './animClips.js';
+import { getPlayerSheet, getSlimeSheet, getArcherSheet, getBruteSheet } from './spriteRegistry.js';
 import { drawImageFrame } from './spriteDraw.js';
 
 /**
@@ -166,12 +168,12 @@ export function drawEnemies(ctx, state) {
     }
     if (e.type === 'ranged') {
       if (!e.alive) continue;
-      drawRangedEnemy(ctx, e);
+      drawRangedEnemy(ctx, e, state);
       continue;
     }
     if (e.type === 'heavy') {
       if (!e.alive) continue;
-      drawHeavyEnemy(ctx, e);
+      drawHeavyEnemy(ctx, e, state);
       continue;
     }
     if (!shouldDrawSlime(e, state)) {
@@ -273,7 +275,23 @@ export function drawEnemies(ctx, state) {
   }
 }
 
-function drawRangedEnemy(ctx, e) {
+function drawRangedEnemy(ctx, e, state) {
+  const src = resolveRangedTextureRect(e, state);
+  const img = getArcherSheet();
+  const dw = ARCHER_SHEET.dest.w;
+  const dh = ARCHER_SHEET.dest.h;
+  const drawX = e.x + (e.w - dw) * 0.5 + RANGED_SPRITE_OFFSET_X;
+  const drawY = e.y + e.h - dh + RANGED_SPRITE_OFFSET_Y;
+  drawGroundShadow(ctx, e.x + e.w * 0.5, e.y + e.h + 2, e.w * 0.48, 4, 'rgba(0,0,0,0.45)');
+  if (src && drawImageFrame(ctx, img, src.sx, src.sy, src.sw, src.sh, drawX, drawY, dw, dh, !e.facingRight)) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(8,10,16,0.9)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(drawX - 0.5, drawY - 0.5, dw + 1, dh + 1);
+    ctx.restore();
+    if (e.alive) drawEnemyHPBar(ctx, e);
+    return;
+  }
   const body = e.state === 'telegraph' ? '#ffd166' : e.state === 'hurt' ? '#ef9a9a' : '#b39ddb';
   ctx.fillStyle = 'rgba(0,0,0,0.45)';
   ctx.beginPath();
@@ -298,7 +316,23 @@ function drawProjectile(ctx, e) {
   ctx.strokeRect(e.x + 0.5, e.y + 0.5, e.w - 1, e.h - 1);
 }
 
-function drawHeavyEnemy(ctx, e) {
+function drawHeavyEnemy(ctx, e, state) {
+  const src = resolveHeavyTextureRect(e, state);
+  const img = getBruteSheet();
+  const dw = BRUTE_SHEET.dest.w;
+  const dh = BRUTE_SHEET.dest.h;
+  const drawX = e.x + (e.w - dw) * 0.5 + HEAVY_SPRITE_OFFSET_X;
+  const drawY = e.y + e.h - dh + HEAVY_SPRITE_OFFSET_Y;
+  drawGroundShadow(ctx, e.x + e.w * 0.5, e.y + e.h + 2, e.w * 0.52, 5, 'rgba(0,0,0,0.5)');
+  if (src && drawImageFrame(ctx, img, src.sx, src.sy, src.sw, src.sh, drawX, drawY, dw, dh, !e.facingRight)) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(16,10,10,0.95)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(drawX - 0.5, drawY - 0.5, dw + 1, dh + 1);
+    ctx.restore();
+    drawEnemyHPBar(ctx, e);
+    return;
+  }
   const body = e.state === 'telegraph'
     ? '#ffb74d'
     : e.state === 'charge'
@@ -352,13 +386,17 @@ function drawGroundShadow(ctx, cx, y, halfW, ry, color) {
 }
 
 function drawEnemyHPBar(ctx, e) {
-  const bw = e.w + 8;
+  const bw = 40;
   const bh = 4;
-  const bx = e.x - 4;
+  const bx = e.x + e.w * 0.5 - bw * 0.5;
   const by = e.y - 12;
   const pct = Math.max(0, e.hp / e.maxHp);
-  ctx.fillStyle = '#1a1a2e';
+  ctx.save();
+  ctx.globalAlpha = 0.40;
+  ctx.fillStyle = '#000000';
   ctx.fillRect(bx, by, bw, bh);
+  ctx.globalAlpha = 0.90;
   ctx.fillStyle = pct > 0.5 ? '#43a047' : pct > 0.25 ? '#f9a825' : '#e53935';
   ctx.fillRect(bx, by, bw * pct, bh);
+  ctx.restore();
 }

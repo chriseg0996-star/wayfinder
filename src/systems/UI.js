@@ -1,11 +1,10 @@
 // ============================================================
 // WAYFINDER — UI.js
-// Light MMO Hybrid baseline HUD (primitive visuals, no external assets).
+// Premium RPG HUD style pass for 2D side-scroller layout.
 // ============================================================
 
 import {
   CANVAS_W, CANVAS_H,
-  COLOR_HP_BG, COLOR_HP_BAR, COLOR_HP_FILL,
   COLOR_DEBUG_BG, COLOR_DEBUG_TEXT,
   UI_LOSE_TITLE, UI_LOSE_SUB, UI_WIN_TITLE,
   UI_WIN_SUB_NEXT, UI_WIN_SUB_FINALE,
@@ -14,31 +13,38 @@ import {
 } from '../config/Constants.js';
 import { isLastZone } from '../data/zones.js';
 
-const PANEL_KEYS = {
-  inventory: 'I',
-  character: 'C',
-  map: 'M',
-  settings: 'ESC',
-};
-
 const DEBUG_LH  = 12;
 const DEBUG_PAD = 4;
 const DEBUG_W   = 168;
 
-const UI_THEME = {
-  outer: 'rgba(8,12,18,0.72)',
-  borderDark: 'rgba(14,18,24,0.72)',
-  borderMid: 'rgba(84,66,40,0.55)',
-  borderLight: 'rgba(214,171,101,0.85)',
-  headerTop: '#4f3c23',
-  headerBot: '#2c2216',
-  title: '#f6d38a',
-  label: '#a9b4c2',
-  value: '#eef4ff',
-  shadow: 'rgba(0,0,0,0.28)',
-  slotBase: '#151b24',
-  slotInner: '#243142',
+const UI = {
+  panelTop: '#12161C',
+  panelBottom: '#0C0F14',
+  goldLight: '#E7C77A',
+  goldBase: '#C9A45B',
+  goldInner: '#3A2E1F',
+  goldDark: '#7A5A2A',
+  hpRed: '#D84A4A',
+  hpRedDark: '#7A1F1F',
+  manaBlue: '#4A90E2',
+  manaBlueDark: '#1F3F7A',
+  cooldownBlack: '#000000',
+  white: '#FFFFFF',
+  slotTop: '#1A1D22',
+  slotBottom: '#0C0F13',
 };
+
+const UI_SPACE = {
+  panelPad: 12,
+  gap: 8,
+  top: 20,
+  side: 20,
+  skillBottom: 80,
+  skillGap: 10,
+  skillSize: 48,
+};
+
+function rp(v) { return Math.round(v); }
 
 function ensureUIState(state) {
   if (!state._ui) {
@@ -61,9 +67,7 @@ export function updateUIState(state, input) {
   if (input.inventoryPressed) togglePanel(state, 'inventory');
   if (input.characterPressed) togglePanel(state, 'character');
   if (input.mapPressed) togglePanel(state, 'map');
-  if (input.settingsPressed) {
-    ui.openPanel = ui.openPanel ? null : 'settings';
-  }
+  if (input.settingsPressed) ui.openPanel = ui.openPanel ? null : 'settings';
 
   const inCombat = state.player.state === 'attack' || state.player.state === 'hurt' || state.player.state === 'dodge'
     || state.enemies.some(e => e.alive && (e.type === 'projectile' || e.state === 'telegraph' || e.state === 'attack' || e.state === 'charge'));
@@ -77,348 +81,330 @@ export function renderUI(ctx, state, fps) {
   const cw = ctx.canvas?.width || CANVAS_W;
   const ch = ctx.canvas?.height || CANVAS_H;
   const small = cw < 900 || ch < 520;
-  const scale = small ? 0.9 : 1;
+  const s = small ? 0.9 : 1;
   const minimized = ui.recentCombatTimer <= 0 && !ui.openPanel && state.roundState === 'playing';
 
-  drawBottomSystemStrip(ctx, { w: cw, h: ch, s: scale });
-  drawVitalsPanel(ctx, state, { x: 12 * scale, y: 10 * scale, s: scale, minimized });
-  drawSkillBar(ctx, state, { x: cw * 0.5, y: ch - (small ? 62 : 76), s: scale });
-  drawObjectiveTracker(ctx, state, { x: cw - (small ? 272 : 320), y: 12 * scale, w: small ? 258 : 304, s: scale, minimized });
-  drawQuickItem(ctx, state, { x: cw * 0.5 + 184 * scale, y: ch - (small ? 58 : 72), s: scale, minimized });
-  if (ui.openPanel) drawOnDemandPanels(ctx, state, ui.openPanel, { w: cw, h: ch, s: scale });
+  drawBottomSystemStrip(ctx, cw, ch);
+  drawVitalsPanel(ctx, state, UI_SPACE.side * s, UI_SPACE.top * s, s, minimized);
+  drawObjectivePanel(ctx, state, cw - (small ? 248 : 270), UI_SPACE.top * s, small ? 228 : 250, s, minimized);
+  drawSkillBar(ctx, state, cw * 0.5, ch - UI_SPACE.skillBottom * s, s);
+  drawQuickItem(ctx, state, UI_SPACE.side * s, ch - UI_SPACE.skillBottom * s, s, minimized);
 
+  if (ui.openPanel) drawSecondaryPanels(ctx, state, ui.openPanel, cw, ch, s);
   if (state.roundState !== 'playing') drawRoundOverlay(ctx, state, cw, ch);
   if (state.debug) drawDebugOverlay(ctx, state, fps, cw, ch);
 }
 
-function drawPanelChrome(ctx, x, y, w, h, title = null) {
+function drawPanel(ctx, x, y, w, h) {
+  x = rp(x); y = rp(y); w = rp(w); h = rp(h);
+  const g = ctx.createLinearGradient(x, y, x, y + h);
+  g.addColorStop(0, 'rgba(18,22,28,0.90)');
+  g.addColorStop(1, 'rgba(12,15,20,0.95)');
   ctx.save();
-  const grad = ctx.createLinearGradient(x, y, x, y + h);
-  grad.addColorStop(0, 'rgba(22,28,38,0.78)');
-  grad.addColorStop(1, 'rgba(10,14,20,0.66)');
-  ctx.fillStyle = grad;
+  ctx.fillStyle = g;
   ctx.fillRect(x, y, w, h);
 
-  // Outer subtle glow
-  ctx.shadowColor = 'rgba(215,170,95,0.22)';
+  // Inner shadow.
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.25)';
+  ctx.shadowBlur = 4;
+  ctx.fillStyle = 'rgba(0,0,0,0.01)';
+  ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+  ctx.restore();
+
+  // Double border.
+  ctx.strokeStyle = UI.goldBase;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  ctx.strokeStyle = UI.goldInner;
+  ctx.strokeRect(x + 2.5, y + 2.5, w - 5, h - 5);
+
+  // Subtle glow.
+  ctx.shadowColor = 'rgba(231,199,122,0.08)';
   ctx.shadowBlur = 8;
-  ctx.strokeStyle = 'rgba(215,170,95,0.52)';
+  ctx.strokeStyle = 'rgba(231,199,122,0.08)';
   ctx.lineWidth = 1;
   ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
   ctx.shadowBlur = 0;
-
-  // Thin gold frame hierarchy
-  ctx.strokeStyle = UI_THEME.borderMid;
-  ctx.lineWidth = 1;
-  ctx.strokeRect(x + 1.5, y + 1.5, w - 3, h - 3);
-  ctx.strokeStyle = UI_THEME.borderLight;
-  ctx.strokeRect(x + 3.5, y + 3.5, w - 7, h - 7);
-
-  // Inner shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.16)';
-  ctx.fillRect(x + 4, y + h - 9, w - 8, 5);
-  ctx.fillStyle = 'rgba(255,255,255,0.03)';
-  ctx.fillRect(x + 4, y + 4, w - 8, 4);
-
-  if (title) {
-    const hh = 14;
-    const hGrad = ctx.createLinearGradient(x, y, x, y + hh);
-    hGrad.addColorStop(0, 'rgba(77,58,34,0.74)');
-    hGrad.addColorStop(1, 'rgba(38,29,20,0.62)');
-    ctx.fillStyle = hGrad;
-    ctx.fillRect(x + 5, y + 5, w - 10, hh);
-    ctx.strokeStyle = 'rgba(212,169,101,0.46)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x + 5.5, y + 5.5, w - 11, hh - 1);
-    ctx.fillStyle = UI_THEME.title;
-    ctx.font = 'bold 10px monospace';
-    ctx.textAlign = 'left';
-    ctx.fillText(title, x + 10, y + 15);
-  }
   ctx.restore();
 }
 
-function drawCorner(ctx, x, y, dx, dy) {
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.lineTo(x + dx, y);
-  ctx.moveTo(x, y);
-  ctx.lineTo(x, y + dy);
-  ctx.stroke();
-}
-
-function drawBottomSystemStrip(ctx, vp) {
-  const { w, h, s } = vp;
-  const stripH = 92 * s;
-  const y = h - stripH;
+function drawBottomSystemStrip(ctx, cw, ch) {
+  const y = ch - 92;
+  const g = ctx.createLinearGradient(0, y, 0, ch);
+  g.addColorStop(0, 'rgba(27,31,36,0.40)');
+  g.addColorStop(1, 'rgba(14,17,21,0.68)');
   ctx.save();
-  const g = ctx.createLinearGradient(0, y, 0, h);
-  g.addColorStop(0, 'rgba(8,12,16,0.38)');
-  g.addColorStop(1, 'rgba(8,10,14,0.68)');
   ctx.fillStyle = g;
-  ctx.fillRect(0, y, w, stripH);
-  ctx.strokeStyle = 'rgba(214,171,101,0.45)';
+  ctx.fillRect(0, y, cw, 92);
+  ctx.strokeStyle = 'rgba(201,164,91,0.50)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(0, y + 0.5);
-  ctx.lineTo(w, y + 0.5);
+  ctx.moveTo(0, rp(y) + 0.5);
+  ctx.lineTo(cw, rp(y) + 0.5);
   ctx.stroke();
   ctx.restore();
 }
 
-function drawVitalsPanel(ctx, state, opts) {
+function drawVitalsPanel(ctx, state, x, y, s, minimized) {
   const p = state.player;
-  const { x, y, s, minimized } = opts;
-  const w = minimized ? 212 * s : 278 * s;
-  const h = minimized ? 58 * s : 98 * s;
-  const hpPct = Math.max(0, p.hp / p.maxHp);
-  const lowHp = hpPct <= 0.25;
-  const pulse = lowHp ? (0.45 + 0.35 * Math.sin(state._ui.lowHpPulse * 12)) : 0;
+  const w = (minimized ? 184 : 208) * s;
+  const h = (minimized ? 56 : 78) * s;
+  drawPanel(ctx, x, y, w, h);
 
-  drawPanelChrome(ctx, x, y, w, h, null);
-
-  // Portrait placeholder
-  const px = x + 12 * s;
-  const py = y + 30 * s;
-  const ps = 32 * s;
+  const pad = UI_SPACE.panelPad * s;
+  const gap = UI_SPACE.gap * s;
+  const px = x + pad;
+  const py = y + (pad + 6 * s);
+  const ps = 40 * s;
   ctx.save();
-  ctx.fillStyle = '#1c2736';
-  ctx.fillRect(px, py, ps, ps);
-  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(px + 0.5, py + 0.5, ps - 1, ps - 1);
-  ctx.fillStyle = UI_THEME.value;
-  ctx.font = `${Math.round(12 * s)}px monospace`;
-  ctx.fillText('P', px + ps * 0.4, py + ps * 0.7);
-  const badgeW = 16 * s;
-  const badgeH = 14 * s;
-  ctx.fillStyle = '#111';
-  ctx.fillRect(px + ps - badgeW - 2 * s, py + ps - badgeH - 2 * s, badgeW, badgeH);
-  ctx.strokeStyle = UI_THEME.borderLight;
-  ctx.strokeRect(px + ps - badgeW - 2 * s + 0.5, py + ps - badgeH - 2 * s + 0.5, badgeW - 1, badgeH - 1);
-  ctx.fillStyle = UI_THEME.title;
-  ctx.font = `${Math.round(9 * s)}px monospace`;
+  // Circular portrait frame
+  ctx.fillStyle = '#10151b';
+  ctx.beginPath();
+  ctx.arc(px + ps * 0.5, py + ps * 0.5, ps * 0.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = UI.goldBase;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(px + ps * 0.5, py + ps * 0.5, ps * 0.5 - 1, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.8)';
+  ctx.font = `${rp(12 * s)}px monospace`;
   ctx.textAlign = 'center';
-  ctx.fillText(String(p.level ?? 1), px + ps - badgeW * 0.5 - 2 * s, py + ps - 4 * s);
-  ctx.restore();
+  ctx.fillText('P', px + ps * 0.5, py + ps * 0.62);
+  // Level badge
+  ctx.fillStyle = '#111';
+  ctx.fillRect(px + ps - 12 * s, py + ps - 12 * s, 14 * s, 12 * s);
+  ctx.strokeStyle = UI.goldLight;
+  ctx.strokeRect(px + ps - 12 * s + 0.5, py + ps - 12 * s + 0.5, 14 * s - 1, 12 * s - 1);
+  ctx.fillStyle = UI.goldLight;
+  ctx.font = `${rp(8 * s)}px monospace`;
+  ctx.fillText(String(p.level ?? 1), px + ps - 5 * s, py + ps - 3 * s);
 
-  const bx = px + ps + 10 * s;
-  const by = y + 18 * s;
-  const bw = w - (bx - x) - 10 * s;
-  const bh = 12 * s;
-  ctx.save();
-  ctx.textAlign = 'left';
-  ctx.fillStyle = COLOR_HP_BG;
-  ctx.fillRect(bx, by, bw, bh);
-  ctx.fillStyle = hpPct > 0.5 ? COLOR_HP_FILL : hpPct > 0.25 ? '#f9a825' : COLOR_HP_BAR;
-  ctx.fillRect(bx, by, bw * hpPct, bh);
-  // Subtle HP glow
-  ctx.shadowColor = 'rgba(255,92,92,0.35)';
+  const bx = px + ps + gap;
+  const bw = w - (bx - x) - pad;
+  const hpY = y + pad;
+  const hpH = 10 * s;
+  const hpPct = Math.max(0, Math.min(1, p.hp / p.maxHp));
+  const hpGrad = ctx.createLinearGradient(0, hpY, 0, hpY + hpH);
+  hpGrad.addColorStop(0, UI.hpRed);
+  hpGrad.addColorStop(1, UI.hpRedDark);
+  ctx.fillStyle = 'rgba(24,12,12,0.75)';
+  ctx.fillRect(bx, hpY, bw, hpH);
+  ctx.fillStyle = hpGrad;
+  ctx.fillRect(bx, hpY, bw * hpPct, hpH);
+  ctx.shadowColor = 'rgba(216,74,74,0.25)';
   ctx.shadowBlur = 6;
-  ctx.strokeStyle = 'rgba(255,170,170,0.45)';
-  ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.strokeRect(bx + 0.5, hpY + 0.5, bw - 1, hpH - 1);
   ctx.shadowBlur = 0;
-  ctx.fillStyle = UI_THEME.value;
-  ctx.font = `bold ${Math.round(11 * s)}px monospace`;
-  ctx.fillText(`${p.hp}/${p.maxHp}`, bx + 4 * s, by + 10 * s);
+  ctx.fillStyle = 'rgba(255,255,255,0.90)';
+  ctx.font = `bold ${rp(10 * s)}px monospace`;
+  ctx.textAlign = 'left';
+  ctx.fillText(`${p.hp}/${p.maxHp}`, bx + 4 * s, hpY + 8 * s);
 
-  const resource = p.resource ?? p.mp ?? 0; // TODO: bind real resource field if introduced.
-  const maxResource = p.maxResource ?? p.maxMp ?? 0; // TODO hook.
   if (!minimized) {
-    const rBy = by + 17 * s;
-    ctx.fillStyle = '#1f2a34';
-    ctx.fillRect(bx, rBy, bw, bh);
-    const rPct = maxResource > 0 ? Math.max(0, Math.min(1, resource / maxResource)) : 1;
-    // Less saturated secondary resource
-    ctx.fillStyle = '#4e7ca3';
-    ctx.fillRect(bx, rBy, bw * rPct, bh);
-    ctx.fillStyle = UI_THEME.value;
-    ctx.font = `${Math.round(10 * s)}px monospace`;
-    const rText = maxResource > 0 ? `${resource}/${maxResource}` : 'TODO';
-    ctx.fillText(rText, bx + 4 * s, rBy + 10 * s);
-  }
-  ctx.fillStyle = UI_THEME.title;
-  ctx.font = `bold ${Math.round(10 * s)}px monospace`;
-  ctx.fillText(`LV ${p.level ?? 1}`, bx, y + h - 10 * s);
-
-  if (lowHp) {
-    // HP pulse on bar
-    ctx.fillStyle = `rgba(255,82,82,${0.2 + pulse * 0.45})`;
-    ctx.fillRect(bx, by, bw, bh);
-    drawRedVignette(ctx, 0.22 + pulse * 0.22);
-  }
-  ctx.restore();
-}
-
-function drawSkillBar(ctx, state, opts) {
-  const p = state.player;
-  const { x, y, s } = opts;
-  const slots = [
-    { key: '1', name: 'Dash', cd: Math.max(0, p.abilityMoveCd ?? 0), maxCd: ABILITY_MOVE_CD, color: '#42a5f5' },
-    { key: '2', name: 'Burst', cd: Math.max(0, p.abilityDamageCd ?? 0), maxCd: ABILITY_DAMAGE_CD, color: '#ff7043' },
-    { key: '3', name: 'Guard', cd: Math.max(0, p.abilityGuardCd ?? 0), maxCd: ABILITY_GUARD_CD, color: '#66bb6a' },
-    { key: '4', name: 'Skill4', cd: 0, maxCd: 1, color: '#ab47bc' }, // TODO hook
-    { key: 'Q', name: 'SkillQ', cd: 0, maxCd: 1, color: '#8d6e63' }, // TODO hook
-  ];
-  const size = 44 * s;
-  const gap = 8 * s;
-  const totalW = slots.length * size + (slots.length - 1) * gap;
-  const x0 = x - totalW * 0.5;
-
-  const resource = p.resource ?? p.mp ?? 0; // TODO hook
-  const maxResource = p.maxResource ?? p.maxMp ?? 0; // TODO hook
-  const noResource = maxResource > 0 && resource <= 0;
-
-  drawPanelChrome(ctx, x0 - 14 * s, y - 10 * s, totalW + 28 * s, size + 28 * s, null);
-  ctx.save();
-  for (let i = 0; i < slots.length; i++) {
-    const slot = slots[i];
-    const sx = x0 + i * (size + gap);
-    const sy = y;
-    // Framed slot
-    ctx.fillStyle = UI_THEME.slotBase;
-    ctx.fillRect(sx, sy, size, size);
-    ctx.strokeStyle = UI_THEME.borderMid;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(sx + 1.5, sy + 1.5, size - 3, size - 3);
-    const isReady = slot.cd <= 0.001;
-    const pulse = 0.45 + 0.35 * Math.sin((state._ui?.lowHpPulse ?? 0) * 7 + i);
-    ctx.strokeStyle = isReady ? `rgba(214,171,101,${0.52 + pulse * 0.35})` : UI_THEME.borderLight;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(sx + 3.5, sy + 3.5, size - 7, size - 7);
-    ctx.fillStyle = UI_THEME.slotInner;
-    ctx.fillRect(sx + 5 * s, sy + 5 * s, size - 10 * s, size - 10 * s);
-    // Inner shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.18)';
-    ctx.fillRect(sx + 5 * s, sy + size - 11 * s, size - 10 * s, 6 * s);
-    ctx.fillStyle = slot.color;
-    ctx.globalAlpha = noResource && i > 2 ? 0.35 : 0.9;
-    ctx.fillRect(sx + 8 * s, sy + 8 * s, size - 16 * s, size - 16 * s);
+    const rY = hpY + 10 * s + gap * 0.75;
+    const rH = 8 * s;
+    const r = p.resource ?? p.mp ?? 0;
+    const rMax = p.maxResource ?? p.maxMp ?? 0;
+    const rPct = rMax > 0 ? Math.max(0, Math.min(1, r / rMax)) : 1;
+    const manaGrad = ctx.createLinearGradient(0, rY, 0, rY + rH);
+    manaGrad.addColorStop(0, UI.manaBlue);
+    manaGrad.addColorStop(1, UI.manaBlueDark);
+    ctx.fillStyle = 'rgba(16,22,34,0.75)';
+    ctx.fillRect(bx, rY, bw, rH);
+    ctx.globalAlpha = 0.82;
+    ctx.fillStyle = manaGrad;
+    ctx.fillRect(bx, rY, bw * rPct, rH);
     ctx.globalAlpha = 1;
-
-    if (slot.cd > 0) {
-      const pct = Math.max(0, Math.min(1, slot.cd / slot.maxCd));
-      ctx.fillStyle = 'rgba(0,0,0,0.72)';
-      // Fill from bottom
-      const hFill = size * pct;
-      ctx.fillRect(sx, sy + (size - hFill), size, hFill);
-      ctx.fillStyle = '#fff8e1';
-      ctx.font = `bold ${Math.round(16 * s)}px monospace`;
-      ctx.textAlign = 'center';
-      ctx.fillText(slot.cd.toFixed(1), sx + size * 0.5, sy + size * 0.60);
-    }
-
-    ctx.fillStyle = '#111';
-    ctx.fillRect(sx + size * 0.34, sy + size - 12 * s, size * 0.32, 11 * s);
-    ctx.strokeStyle = UI_THEME.borderLight;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(sx + size * 0.34 + 0.5, sy + size - 12 * s + 0.5, size * 0.32 - 1, 10 * s);
-    ctx.fillStyle = UI_THEME.value;
-    ctx.font = `${Math.round(9 * s)}px monospace`;
-    ctx.textAlign = 'center';
-    ctx.fillText(slot.key, sx + size * 0.5, sy + size - 3 * s);
+    ctx.fillStyle = 'rgba(255,255,255,0.90)';
+    ctx.font = `${rp(9 * s)}px monospace`;
+    const rTxt = rMax > 0 ? `${r}/${rMax}` : 'TODO';
+    ctx.fillText(rTxt, bx + 4 * s, rY + 7 * s);
   }
   ctx.restore();
+
+  if (hpPct <= 0.25) {
+    const pulse = 0.45 + 0.35 * Math.sin((state._ui?.lowHpPulse ?? 0) * 12);
+    drawRedVignette(ctx, 0.20 + pulse * 0.20);
+  }
 }
 
-function drawObjectiveTracker(ctx, state, opts) {
-  const { x, y, w, s, minimized } = opts;
+function drawObjectivePanel(ctx, state, x, y, w, s, minimized) {
   if (minimized) return;
+  const h = 48 * s;
+  const pad = UI_SPACE.panelPad * s;
+  drawPanel(ctx, x, y, w, h);
   const nonProj = state.enemies.filter(e => e.type !== 'projectile');
   const total = nonProj.length;
   const alive = nonProj.filter(e => e.alive).length;
   const done = total - alive;
-  // TODO: replace with state.objectives.active when objective system is available.
-  const title = `${state.currentZoneId.toUpperCase()}`;
-  const sub = `Clear enemies ${done}/${total}`;
-
-  drawPanelChrome(ctx, x, y, w, 48 * s, null);
   ctx.save();
-  ctx.globalAlpha = 0.86;
-  ctx.fillStyle = UI_THEME.title;
-  ctx.font = `bold ${Math.round(10 * s)}px monospace`;
+  ctx.globalAlpha = 0.80;
+  ctx.fillStyle = UI.goldLight;
+  ctx.font = `bold ${rp(10 * s)}px monospace`;
   ctx.textAlign = 'left';
-  ctx.fillText(title, x + 10 * s, y + 18 * s);
-  ctx.fillStyle = UI_THEME.value;
-  ctx.font = `${Math.round(9 * s)}px monospace`;
-  ctx.fillText(sub, x + 10 * s, y + 34 * s);
-  ctx.globalAlpha = 1;
+  ctx.fillText(`${state.currentZoneId.toUpperCase()}`, x + pad, y + 18 * s);
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.font = `${rp(9 * s)}px monospace`;
+  ctx.fillText(`Clear enemies ${done}/${total}`, x + pad, y + 34 * s);
   ctx.restore();
 }
 
-function drawQuickItem(ctx, state, opts) {
-  const { x, y, s, minimized } = opts;
+function drawSkillBar(ctx, state, cx, y, s) {
+  const p = state.player;
+  const slots = [
+    { key: '1', cd: Math.max(0, p.abilityMoveCd ?? 0), maxCd: ABILITY_MOVE_CD, color: '#2f7dd2' },
+    { key: '2', cd: Math.max(0, p.abilityDamageCd ?? 0), maxCd: ABILITY_DAMAGE_CD, color: '#6d39a8' },
+    { key: '3', cd: Math.max(0, p.abilityGuardCd ?? 0), maxCd: ABILITY_GUARD_CD, color: '#3c8b42' },
+    { key: '4', cd: 0, maxCd: 1, color: '#d06a2f' },
+    { key: 'Q', cd: 0, maxCd: 1, color: '#5e5e5e' },
+  ];
+  const size = UI_SPACE.skillSize * s;
+  const gap = UI_SPACE.skillGap * s;
+  const totalW = slots.length * size + (slots.length - 1) * gap;
+  const x0 = cx - totalW * 0.5;
+  const activeIndex = 0;
+  const pulse = 0.15 + (0.30 - 0.15) * ((Math.sin((state._ui?.lowHpPulse ?? 0) * (2 * Math.PI * 2.0)) + 1) * 0.5);
+
+  drawPanel(ctx, x0 - 12 * s, y - 12 * s, totalW + 24 * s, size + 24 * s);
+
+  for (let i = 0; i < slots.length; i++) {
+    const sl = slots[i];
+    const sx = rp(x0 + i * (size + gap));
+    const sy = rp(y);
+    const g = ctx.createLinearGradient(0, sy, 0, sy + size);
+    g.addColorStop(0, UI.slotTop);
+    g.addColorStop(1, UI.slotBottom);
+    ctx.save();
+    ctx.fillStyle = g;
+    ctx.fillRect(sx, sy, size, size);
+    ctx.strokeStyle = UI.goldBase;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(sx + 0.5, sy + 0.5, size - 1, size - 1);
+    ctx.strokeStyle = UI.goldInner;
+    ctx.strokeRect(sx + 2.5, sy + 2.5, size - 5, size - 5);
+    ctx.fillStyle = 'rgba(0,0,0,0.20)';
+    ctx.fillRect(sx + 6 * s, sy + size - 13 * s, size - 12 * s, 7 * s);
+    const iconGrad = ctx.createLinearGradient(0, sy + 10 * s, 0, sy + size - 10 * s);
+    iconGrad.addColorStop(0, sl.color);
+    iconGrad.addColorStop(1, 'rgba(12,15,19,0.85)');
+    ctx.fillStyle = iconGrad;
+    ctx.fillRect(sx + 10 * s, sy + 10 * s, size - 20 * s, size - 20 * s);
+
+    // Ready state glow pulse
+    if (sl.cd <= 0.001) {
+      ctx.shadowColor = `rgba(231,199,122,${pulse})`;
+      ctx.shadowBlur = 8;
+      ctx.strokeStyle = `rgba(231,199,122,${pulse + 0.10})`;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(sx + 1.5, sy + 1.5, size - 3, size - 3);
+      ctx.shadowBlur = 0;
+    }
+    // Active state
+    if (i === activeIndex) {
+      ctx.shadowColor = 'rgba(231,199,122,0.35)';
+      ctx.shadowBlur = 12;
+      ctx.strokeStyle = UI.goldLight;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(sx + 1.5, sy + 1.5, size - 3, size - 3);
+      ctx.shadowBlur = 0;
+    }
+
+    // Cooldown overlay bottom -> top
+    if (sl.cd > 0) {
+      const ratio = Math.max(0, Math.min(1, sl.cd / sl.maxCd));
+      const fillH = size * ratio;
+      ctx.fillStyle = 'rgba(0,0,0,0.65)';
+      ctx.fillRect(sx, sy + (size - fillH), size, fillH);
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.font = `bold ${rp(14 * s)}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText(sl.cd.toFixed(1), sx + size * 0.5, sy + size * 0.60);
+    }
+
+    // key label chip
+    ctx.fillStyle = '#111';
+    ctx.fillRect(sx + size * 0.34, sy + size - 12 * s, size * 0.32, 11 * s);
+    ctx.strokeStyle = UI.goldBase;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(sx + size * 0.34 + 0.5, sy + size - 12 * s + 0.5, size * 0.32 - 1, 10 * s);
+    ctx.fillStyle = UI.white;
+    ctx.font = `${rp(9 * s)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(sl.key, sx + size * 0.5, sy + size - 3 * s);
+    ctx.restore();
+  }
+}
+
+function drawQuickItem(ctx, state, x, y, s, minimized) {
   if (minimized) return;
-  const quick = state.player.quickItem ?? null; // TODO: bind inventory quickslot when inventory is wired.
+  const quick = state.player.quickItem ?? true; // keep visible as placeholder slot.
   if (!quick) return;
-  const size = 36 * s;
-  drawPanelChrome(ctx, x - 6 * s, y - 20 * s, size + 12 * s, size + 26 * s, 'ITEM');
+  const size = 48 * s;
+  drawPanel(ctx, x, y, size, size);
+  const g = ctx.createLinearGradient(0, y, 0, y + size);
+  g.addColorStop(0, UI.slotTop);
+  g.addColorStop(1, UI.slotBottom);
   ctx.save();
-  ctx.fillStyle = UI_THEME.slotBase;
+  ctx.fillStyle = g;
   ctx.fillRect(x, y, size, size);
-  ctx.strokeStyle = UI_THEME.borderLight;
+  ctx.strokeStyle = UI.goldBase;
+  ctx.lineWidth = 1.5;
   ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
-  ctx.fillStyle = '#ffcc80';
-  ctx.fillRect(x + 6 * s, y + 6 * s, size - 12 * s, size - 12 * s);
-  ctx.fillStyle = '#111';
-  ctx.font = `${Math.round(8 * s)}px monospace`;
-  ctx.fillText('R', x + size * 0.5, y + size - 4 * s);
+  ctx.fillStyle = '#c0392b';
+  ctx.fillRect(x + 13 * s, y + 12 * s, size - 26 * s, size - 24 * s);
+  ctx.fillStyle = UI.white;
+  ctx.font = `${rp(9 * s)}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.fillText('R', x + size * 0.5, y + size - 6 * s);
   ctx.restore();
 }
 
-function drawOnDemandPanels(ctx, state, panel, vp) {
-  const { w, h, s } = vp;
-  const pw = Math.min(290 * s, w - 24 * s);
-  const ph = Math.min(200 * s, h - 90 * s);
-  const y = (h - ph) * 0.58;
-  const xLeft = w * 0.5 - pw - 8 * s;
-  const xRight = w * 0.5 + 8 * s;
+function drawSecondaryPanels(ctx, state, panel, cw, ch, s) {
+  const pw = Math.min(290 * s, cw - 24 * s);
+  const ph = Math.min(200 * s, ch - 90 * s);
+  const y = (ch - ph) * 0.58;
+  const xl = cw * 0.5 - pw - 8 * s;
+  const xr = cw * 0.5 + 8 * s;
   if (panel === 'inventory' || panel === 'character') {
-    drawSecondaryWindow(ctx, state, 'inventory', xLeft, y, pw, ph, s);
-    drawSecondaryWindow(ctx, state, 'character', xRight, y, pw, ph, s);
+    drawSecondaryPanel(ctx, state, 'inventory', xl, y, pw, ph, s);
+    drawSecondaryPanel(ctx, state, 'character', xr, y, pw, ph, s);
     return;
   }
-  drawSecondaryWindow(ctx, state, panel, w * 0.5 - pw * 0.5, y, pw, ph, s);
+  drawSecondaryPanel(ctx, state, panel, cw * 0.5 - pw * 0.5, y, pw, ph, s);
 }
 
-function drawSecondaryWindow(ctx, state, panel, x, y, pw, ph, s) {
-  drawPanelChrome(ctx, x, y, pw, ph, panel.toUpperCase());
+function drawSecondaryPanel(ctx, state, panel, x, y, w, h, s) {
+  drawPanel(ctx, x, y, w, h);
   ctx.save();
-  ctx.fillStyle = UI_THEME.label;
-  ctx.font = `${Math.round(10 * s)}px monospace`;
+  ctx.fillStyle = UI.goldLight;
+  ctx.font = `bold ${rp(10 * s)}px monospace`;
   ctx.textAlign = 'left';
-  ctx.fillText('Panel baseline (placeholder)', x + 12 * s, y + 38 * s);
-  // separators
-  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(x + 10 * s, y + 48 * s);
-  ctx.lineTo(x + pw - 10 * s, y + 48 * s);
-  ctx.stroke();
+  ctx.fillText(panel.toUpperCase(), x + 10 * s, y + 16 * s);
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.font = `${rp(9 * s)}px monospace`;
   if (panel === 'character') {
     const p = state.player;
-    ctx.fillStyle = UI_THEME.value;
-    ctx.fillText(`Level ${p.level}   HP ${p.hp}/${p.maxHp}`, x + 12 * s, y + 68 * s);
-    ctx.fillText(`STR ${p.stats?.str ?? 0}  VIT ${p.stats?.vit ?? 0}  AGI ${p.stats?.agi ?? 0}`, x + 12 * s, y + 84 * s);
-  }
-  if (panel === 'inventory') {
+    ctx.fillText(`Level ${p.level}  HP ${p.hp}/${p.maxHp}`, x + 12 * s, y + 36 * s);
+    ctx.fillText(`STR ${p.stats?.str ?? 0}  VIT ${p.stats?.vit ?? 0}  AGI ${p.stats?.agi ?? 0}`, x + 12 * s, y + 50 * s);
+  } else if (panel === 'inventory') {
     for (let i = 0; i < 10; i++) {
       const gx = x + 12 * s + (i % 5) * (34 * s);
-      const gy = y + 58 * s + Math.floor(i / 5) * (34 * s);
-      ctx.fillStyle = UI_THEME.slotBase;
+      const gy = y + 30 * s + Math.floor(i / 5) * (34 * s);
+      ctx.fillStyle = 'rgba(16,20,26,0.8)';
       ctx.fillRect(gx, gy, 28 * s, 28 * s);
-      ctx.strokeStyle = UI_THEME.borderMid;
+      ctx.strokeStyle = UI.goldDark;
       ctx.strokeRect(gx + 0.5, gy + 0.5, 28 * s - 1, 28 * s - 1);
     }
-  }
-  if (panel === 'settings') {
-    ctx.fillStyle = UI_THEME.value;
-    ctx.fillText('ESC to close', x + 12 * s, y + 68 * s);
+  } else if (panel === 'settings') {
+    ctx.fillText('ESC to close', x + 12 * s, y + 36 * s);
+  } else {
+    ctx.fillText('Panel baseline (placeholder)', x + 12 * s, y + 36 * s);
   }
   ctx.restore();
 }
-
-// Commands panel intentionally removed for lightweight MMO feel.
 
 function drawRoundOverlay(ctx, state, cw, ch) {
   ctx.fillStyle = COLOR_OVERLAY_BG;
@@ -428,13 +414,10 @@ function drawRoundOverlay(ctx, state, cw, ch) {
   ctx.font = 'bold 28px monospace';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const title = won ? UI_WIN_TITLE : UI_LOSE_TITLE;
-  ctx.fillText(title, cw * 0.5, ch * 0.5 - 16);
+  ctx.fillText(won ? UI_WIN_TITLE : UI_LOSE_TITLE, cw * 0.5, ch * 0.5 - 16);
   ctx.fillStyle = COLOR_OVERLAY_SUB;
   ctx.font = '15px monospace';
-  const sub = won
-    ? (isLastZone(state.currentZoneId) ? UI_WIN_SUB_FINALE : UI_WIN_SUB_NEXT)
-    : UI_LOSE_SUB;
+  const sub = won ? (isLastZone(state.currentZoneId) ? UI_WIN_SUB_FINALE : UI_WIN_SUB_NEXT) : UI_LOSE_SUB;
   ctx.fillText(sub, cw * 0.5, ch * 0.5 + 12);
 }
 
@@ -467,10 +450,10 @@ function drawDebugOverlay(ctx, state, fps, cw, ch) {
   ctx.font         = '10px ui-monospace, "Cascadia Mono", Consolas, monospace';
   ctx.textAlign    = 'left';
   ctx.textBaseline = 'top';
-  let y = by + DEBUG_PAD;
+  let yy = by + DEBUG_PAD;
   for (let i = 0; i < nL; i++) {
-    ctx.fillText(lines[i], bx + DEBUG_PAD, y);
-    y += DEBUG_LH;
+    ctx.fillText(lines[i], bx + DEBUG_PAD, yy);
+    yy += DEBUG_LH;
   }
 }
 
@@ -479,25 +462,21 @@ function drawRedVignette(ctx, a) {
   const ch = ctx.canvas?.height || CANVAS_H;
   const edge = 68;
   ctx.save();
-  // top
   let g = ctx.createLinearGradient(0, 0, 0, edge);
   g.addColorStop(0, `rgba(180,20,20,${a})`);
   g.addColorStop(1, 'rgba(180,20,20,0)');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, cw, edge);
-  // bottom
   g = ctx.createLinearGradient(0, ch, 0, ch - edge);
   g.addColorStop(0, `rgba(180,20,20,${a})`);
   g.addColorStop(1, 'rgba(180,20,20,0)');
   ctx.fillStyle = g;
   ctx.fillRect(0, ch - edge, cw, edge);
-  // left
   g = ctx.createLinearGradient(0, 0, edge, 0);
   g.addColorStop(0, `rgba(180,20,20,${a})`);
   g.addColorStop(1, 'rgba(180,20,20,0)');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, edge, ch);
-  // right
   g = ctx.createLinearGradient(cw, 0, cw - edge, 0);
   g.addColorStop(0, `rgba(180,20,20,${a})`);
   g.addColorStop(1, 'rgba(180,20,20,0)');
