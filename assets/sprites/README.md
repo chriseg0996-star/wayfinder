@@ -8,6 +8,8 @@ Drop finalized PNGs here. The game loads them automatically; on failure, procedu
 |------|-----------------|------------------------|
 | `player.png` | **192 × 432** | `PLAYER_SHEET_PIXEL_SIZE` in `src/render/spriteConfig.js` |
 | `slime.png`  | **128 × 144** | `SLIME_SHEET_PIXEL_SIZE` in `src/render/spriteConfig.js` |
+| `archer.png` | from `ARCHER_SHEET_PIXEL_SIZE` | `ARCHER_SHEET_PIXEL_SIZE` in `src/render/spriteConfig.js` |
+| `brute.png`  | from `BRUTE_SHEET_PIXEL_SIZE` | `BRUTE_SHEET_PIXEL_SIZE` in `src/render/spriteConfig.js` |
 
 Sheets may be **larger** than the minimum if extra padding is only on the **right** or **bottom**; layout below must still align from the **top-left** (0,0).
 

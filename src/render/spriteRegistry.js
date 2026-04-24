@@ -8,6 +8,7 @@ import {
   PLAYER_SHEET, SLIME_SHEET, ARCHER_SHEET, BRUTE_SHEET,
   PLAYER_SHEET_PIXEL_SIZE, SLIME_SHEET_PIXEL_SIZE, ARCHER_SHEET_PIXEL_SIZE, BRUTE_SHEET_PIXEL_SIZE,
 } from './spriteConfig.js';
+import { markAssetInvalid, markAssetLoaded, markAssetMissing } from '../assets/assetContract.js';
 
 /** @type {CanvasImageSource | null} */
 let playerSheet = null;
@@ -422,7 +423,11 @@ export function loadSpriteRegistry() {
   registerArcherSheet(makePlaceholderStripCanvas(ARCHER_SHEET, 'archer'));
   registerBruteSheet(makePlaceholderStripCanvas(BRUTE_SHEET, 'brute'));
 
-  // Keep generated placeholders as the active visuals.
+  // Attempt PNG load; placeholders remain active fallback on any failure.
+  tryLoad('assets/sprites/player.png', registerPlayerSheet, 'player.png', PLAYER_SHEET_PIXEL_SIZE);
+  tryLoad('assets/sprites/slime.png', registerSlimeSheet, 'slime.png', SLIME_SHEET_PIXEL_SIZE);
+  tryLoad('assets/sprites/archer.png', registerArcherSheet, 'archer.png', ARCHER_SHEET_PIXEL_SIZE);
+  tryLoad('assets/sprites/boar/Walk-Sheet.png', registerBruteSheet, 'boar/Walk-Sheet.png', BRUTE_SHEET_PIXEL_SIZE);
 }
 
 /**
@@ -435,15 +440,24 @@ function tryLoad(url, reg, label, minPx) {
   const im = new Image();
   im.onload  = () => {
     if (minPx && (im.naturalWidth < minPx.w || im.naturalHeight < minPx.h)) {
+      markAssetInvalid(
+        url,
+        `image ${im.naturalWidth}x${im.naturalHeight}px is below contract ${minPx.w}x${minPx.h}px`,
+      );
       console.warn(
         `[Wayfinder sprites] ${label ?? url}: ` +
         `image is ${im.naturalWidth}×${im.naturalHeight}px; ` +
         `anim contract needs at least ${minPx.w}×${minPx.h}px. ` +
         'Frames are sampled from a fixed grid (see assets/sprites/README.md).',
       );
+    } else {
+      markAssetLoaded(url, `image ${im.naturalWidth}x${im.naturalHeight}px`);
     }
     reg(im);
   };
-  im.onerror = () => { /* keep placeholder */ };
+  im.onerror = () => {
+    markAssetMissing(url, 'failed to load image');
+    console.warn(`[Wayfinder sprites] missing or failed to load: ${label ?? url}`);
+  };
   im.src     = url;
 }

@@ -7,6 +7,7 @@
 
 import { CANVAS_W, CANVAS_H, COLOR_BG, READABILITY_PARALLAX_OPACITY_MULT } from '../config/Constants.js';
 import { PARALLAX_LAYERS, DEFAULT_PARALLAX_TUNING } from './artConfig.js';
+import { markAssetLoaded, markAssetMissing } from '../assets/assetContract.js';
 
 /** @type {Record<string, HTMLImageElement | null | undefined>} */
 const _parallaxImages = {};
@@ -24,9 +25,16 @@ export function loadParallaxLayers() {
       continue;
     }
     const im = new Image();
-    im.onload = () => { _parallaxImages[def.id] = im; };
-    im.onerror = () => { _parallaxImages[def.id] = null; };
-    im.src = `assets/parallax/${def.id}.png`;
+    const path = `assets/parallax/${def.id}.png`;
+    im.onload = () => {
+      _parallaxImages[def.id] = im;
+      markAssetLoaded(path, `image ${im.naturalWidth}x${im.naturalHeight}px`);
+    };
+    im.onerror = () => {
+      _parallaxImages[def.id] = null;
+      markAssetMissing(path, 'failed to load parallax layer');
+    };
+    im.src = path;
     _parallaxImages[def.id] = null;
   }
 }

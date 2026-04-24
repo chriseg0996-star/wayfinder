@@ -10,7 +10,9 @@ import { assertGameStateTemplateSerializable, assertLiveStateSerializableWhenStr
 import { loadSpriteRegistry } from './render/spriteRegistry.js';
 import { loadParallaxLayers } from './render/backgroundLayers.js';
 import { loadWorldTiles } from './systems/Render.js';
+import { initAssetContract, reportAssetReadiness } from './assets/assetContract.js';
 
+initAssetContract();
 loadSpriteRegistry();
 loadParallaxLayers();
 loadWorldTiles();
@@ -19,6 +21,7 @@ const canvas = document.getElementById('game-canvas');
 const game   = new Game(canvas, state);
 
 const dev = new URLSearchParams(window.location.search).get('dev') === '1';
+const strictAssets = new URLSearchParams(window.location.search).get('assetStrict') === '1';
 
 if (dev) {
   try {
@@ -30,6 +33,16 @@ if (dev) {
 }
 
 game.start();
+
+// Emit one startup report after loaders have had time to resolve.
+setTimeout(() => {
+  try {
+    reportAssetReadiness({ strict: strictAssets });
+  } catch (err) {
+    console.error('[assets] readiness check failed', err);
+    if (strictAssets) throw err;
+  }
+}, 1200);
 
 if (dev) {
   setTimeout(() => {

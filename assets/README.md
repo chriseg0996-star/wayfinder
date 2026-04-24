@@ -2,23 +2,24 @@
 
 **Parallax (no PNG yet):** Three world-space layers are drawn in [`src/render/backgroundLayers.js`](../src/render/backgroundLayers.js) from `state.zoneBg` and optional **`parallaxTuning`** in [`data/zones.js`](../src/data/zones.js) (`desatAdd` / `darkenAdd` per far-mid-near). Tuning keeps actors readable without changing `Player` / `Enemy`.
 
-**When images land:**
+**Release runtime layout (canonical):**
 
 ```
 assets/
-  backgrounds/     # far.png, mid.png, near.png (or one strip per layer)
-  player/          # …
-  enemies/         # …
+  sprites/         # player.png, slime.png, archer.png, brute.png
+  parallax/        # far.png, mid.png, near.png
+  tiles/           # ground.png
+  audio/           # sfx_*.wav, optional bgm_main.ogg
 ```
 
 **Per zone:** In `ZONES[zoneId]`, set:
 - `bg: '#rrggbb'` (mood for all parallax tints)
 - `parallaxTuning` (optional) — add desat/darken on layers that need more mood; **forest** can omit (defaults only).
 
-Replace each gradient block in `drawParallaxStack` with `ctx.drawImage` using the same `multX` / `multY` transform.
+Parallax loader automatically uses `drawImage` when layer PNGs exist and falls back to gradients when they do not.
 
-**Conventions:** See [docs/STYLE_BIBLE.md](../docs/STYLE_BIBLE.md). `drawImage` wiring: small manifest, then `Render` / `backgroundLayers` only.
+**Conventions:** See [docs/STYLE_BIBLE.md](../docs/STYLE_BIBLE.md) and [docs/ASSET_INTAKE_MATRIX.md](../docs/ASSET_INTAKE_MATRIX.md).
 
-**Player / slime PNGs (Phase 2+):** [`sprites/README.md`](sprites/README.md) — file names, grid, min size, flip. Loaded by `src/render/spriteRegistry.js` (`assets/sprites/player.png`, `slime.png`).
+**Sprite PNGs:** [`sprites/README.md`](sprites/README.md) — file names, grid, min size, flip.
 
-**Parallax image layers:** `assets/parallax/far.png`, `mid.png`, `near.png` — loaded by `loadParallaxLayers()` in `src/render/backgroundLayers.js`; horizontally tiled with fallback to gradients if missing.
+**Readiness checks:** startup summary is emitted from `src/assets/assetContract.js`; add `?assetStrict=1` to fail loudly when required assets are missing/invalid.

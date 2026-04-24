@@ -17,8 +17,8 @@ import {
   HEAVY_SPRITE_OFFSET_X, HEAVY_SPRITE_OFFSET_Y,
 } from '../config/Constants.js';
 import { getPlayerAnimKey } from './animKeys.js';
-import { PLAYER_SHEET, SLIME_SHEET, ARCHER_SHEET, BRUTE_SHEET } from './spriteConfig.js';
-import { resolvePlayerTextureRect, resolveSlimeTextureRect, resolveRangedTextureRect, resolveHeavyTextureRect, shouldDrawSlime } from './animClips.js';
+import { PLAYER_SHEET, SLIME_SHEET, ARCHER_SHEET, BOAR_WARRIOR_SPRITE } from './spriteConfig.js';
+import { resolvePlayerTextureRect, resolveSlimeTextureRect, resolveRangedTextureRect, shouldDrawSlime } from './animClips.js';
 import { getPlayerSheet, getSlimeSheet, getArcherSheet, getBruteSheet } from './spriteRegistry.js';
 import { drawImageFrame } from './spriteDraw.js';
 
@@ -84,8 +84,8 @@ export function drawPlayer(ctx, state) {
     drawX, drawY, dw, dh, !p.facingRight,
   );
   if (!used) {
-    drawPlayerSpriteFallback(ctx, p, key, drawX, drawY, dw, dh);
-  } else {
+    drawPlayerSpriteFallback(ctx, p, key, drawX, drawY, dw, dh, state.debug);
+  } else if (state.debug) {
     ctx.save();
     ctx.lineJoin    = 'round';
     ctx.strokeStyle = READABILITY_PLAYER_STROKE.color;
@@ -112,16 +112,18 @@ export function drawPlayer(ctx, state) {
 /**
  * Blit first sheet cell; if that fails, old rect placeholder (no sheet).
  */
-function drawPlayerSpriteFallback(ctx, p, _key, drawX, drawY, dw, dh) {
+function drawPlayerSpriteFallback(ctx, p, _key, drawX, drawY, dw, dh, debug) {
   const img = getPlayerSheet();
   const { frameW, frameH } = PLAYER_SHEET;
   if (img && drawImageFrame(ctx, img, 0, 0, frameW, frameH, drawX, drawY, dw, dh, !p.facingRight)) {
-    ctx.save();
-    ctx.lineJoin    = 'round';
-    ctx.strokeStyle = READABILITY_PLAYER_STROKE.color;
-    ctx.lineWidth   = READABILITY_PLAYER_STROKE.w;
-    ctx.strokeRect(drawX - 0.5, drawY - 0.5, dw + 1, dh + 1);
-    ctx.restore();
+    if (debug) {
+      ctx.save();
+      ctx.lineJoin    = 'round';
+      ctx.strokeStyle = READABILITY_PLAYER_STROKE.color;
+      ctx.lineWidth   = READABILITY_PLAYER_STROKE.w;
+      ctx.strokeRect(drawX - 0.5, drawY - 0.5, dw + 1, dh + 1);
+      ctx.restore();
+    }
     return;
   }
   let color = COLOR_PLAYER;
@@ -130,9 +132,11 @@ function drawPlayerSpriteFallback(ctx, p, _key, drawX, drawY, dw, dh) {
   if (p.state === 'dead') color = '#555';
   ctx.fillStyle = color;
   ctx.fillRect(p.x, p.y, p.w, p.h);
-  ctx.strokeStyle = READABILITY_PLAYER_STROKE.color;
-  ctx.lineWidth   = READABILITY_PLAYER_STROKE.w;
-  ctx.strokeRect(p.x - 0.5, p.y - 0.5, p.w + 1, p.h + 1);
+  if (debug) {
+    ctx.strokeStyle = READABILITY_PLAYER_STROKE.color;
+    ctx.lineWidth   = READABILITY_PLAYER_STROKE.w;
+    ctx.strokeRect(p.x - 0.5, p.y - 0.5, p.w + 1, p.h + 1);
+  }
   ctx.fillStyle = '#0d1117';
   const eyeX = p.facingRight ? p.x + p.w - 8 : p.x + 4;
   ctx.fillRect(eyeX, p.y + 10, 6, 6);
@@ -233,12 +237,14 @@ export function drawEnemies(ctx, state) {
       const fW = SLIME_SHEET.frameW;
       const fH = SLIME_SHEET.frameH;
       if (img && drawImageFrame(ctx, img, 0, 0, fW, fH, drawX, drawY, sDest.w, sDest.h, !e.facingRight)) {
-        ctx.save();
-        ctx.lineJoin     = 'round';
-        ctx.strokeStyle  = READABILITY_SLIME_STROKE.color;
-        ctx.lineWidth    = READABILITY_SLIME_STROKE.w;
-        ctx.strokeRect(drawX - 0.5, drawY - 0.5, sDest.w + 1, sDest.h + 1);
-        ctx.restore();
+        if (state.debug) {
+          ctx.save();
+          ctx.lineJoin     = 'round';
+          ctx.strokeStyle  = READABILITY_SLIME_STROKE.color;
+          ctx.lineWidth    = READABILITY_SLIME_STROKE.w;
+          ctx.strokeRect(drawX - 0.5, drawY - 0.5, sDest.w + 1, sDest.h + 1);
+          ctx.restore();
+        }
       } else {
         let color = COLOR_SLIME;
         if (e.state === 'hurt') {
@@ -257,11 +263,13 @@ export function drawEnemies(ctx, state) {
         const eyeOffX = e.facingRight ? e.w - 10 : 4;
         ctx.fillRect(e.x + eyeOffX,      squashY + 6, ew, eh);
         ctx.fillRect(e.x + eyeOffX + 8,  squashY + 6, ew, eh);
-        ctx.strokeStyle = READABILITY_SLIME_STROKE.color;
-        ctx.lineWidth   = READABILITY_SLIME_STROKE.w;
-        ctx.strokeRect(squashX - 0.5, squashY - 0.5, squashW + 1, squashH + 1);
+        if (state.debug) {
+          ctx.strokeStyle = READABILITY_SLIME_STROKE.color;
+          ctx.lineWidth   = READABILITY_SLIME_STROKE.w;
+          ctx.strokeRect(squashX - 0.5, squashY - 0.5, squashW + 1, squashH + 1);
+        }
       }
-    } else {
+    } else if (state.debug) {
       ctx.save();
       ctx.lineJoin     = 'round';
       ctx.strokeStyle  = READABILITY_SLIME_STROKE.color;
@@ -284,11 +292,13 @@ function drawRangedEnemy(ctx, e, state) {
   const drawY = e.y + e.h - dh + RANGED_SPRITE_OFFSET_Y;
   drawGroundShadow(ctx, e.x + e.w * 0.5, e.y + e.h + 2, e.w * 0.48, 4, 'rgba(0,0,0,0.45)');
   if (src && drawImageFrame(ctx, img, src.sx, src.sy, src.sw, src.sh, drawX, drawY, dw, dh, !e.facingRight)) {
-    ctx.save();
-    ctx.strokeStyle = 'rgba(8,10,16,0.9)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(drawX - 0.5, drawY - 0.5, dw + 1, dh + 1);
-    ctx.restore();
+    if (state.debug) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(8,10,16,0.9)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(drawX - 0.5, drawY - 0.5, dw + 1, dh + 1);
+      ctx.restore();
+    }
     if (e.alive) drawEnemyHPBar(ctx, e);
     return;
   }
@@ -299,9 +309,11 @@ function drawRangedEnemy(ctx, e, state) {
   ctx.fill();
   ctx.fillStyle = body;
   ctx.fillRect(e.x, e.y, e.w, e.h);
-  ctx.strokeStyle = 'rgba(8,10,16,0.9)';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(e.x - 0.5, e.y - 0.5, e.w + 1, e.h + 1);
+  if (state.debug) {
+    ctx.strokeStyle = 'rgba(8,10,16,0.9)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(e.x - 0.5, e.y - 0.5, e.w + 1, e.h + 1);
+  }
   const eyeX = e.facingRight ? e.x + e.w - 9 : e.x + 3;
   ctx.fillStyle = '#101318';
   ctx.fillRect(eyeX, e.y + 8, 6, 5);
@@ -317,19 +329,34 @@ function drawProjectile(ctx, e) {
 }
 
 function drawHeavyEnemy(ctx, e, state) {
-  const src = resolveHeavyTextureRect(e, state);
   const img = getBruteSheet();
-  const dw = BRUTE_SHEET.dest.w;
-  const dh = BRUTE_SHEET.dest.h;
-  const drawX = e.x + (e.w - dw) * 0.5 + HEAVY_SPRITE_OFFSET_X;
-  const drawY = e.y + e.h - dh + HEAVY_SPRITE_OFFSET_Y;
+  const spec = BOAR_WARRIOR_SPRITE;
+  const frameIndex = resolveBoarWarriorFrameIndex(e, state, spec.frames);
+  const sx = frameIndex * spec.frameW;
+  const sy = spec.row * spec.frameH;
+  const sw = spec.frameW;
+  const sh = spec.frameH;
+  const dw = Math.round(spec.frameW * spec.scale);
+  const dh = Math.round(spec.frameH * spec.scale);
+  const drawX = Math.round(e.x - (spec.frameW * spec.scale) / 2 + HEAVY_SPRITE_OFFSET_X);
+  const drawY = Math.round(e.y - spec.frameH * spec.scale + HEAVY_SPRITE_OFFSET_Y);
   drawGroundShadow(ctx, e.x + e.w * 0.5, e.y + e.h + 2, e.w * 0.52, 5, 'rgba(0,0,0,0.5)');
-  if (src && drawImageFrame(ctx, img, src.sx, src.sy, src.sw, src.sh, drawX, drawY, dw, dh, !e.facingRight)) {
-    ctx.save();
-    ctx.strokeStyle = 'rgba(16,10,10,0.95)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(drawX - 0.5, drawY - 0.5, dw + 1, dh + 1);
-    ctx.restore();
+  // Pixel-art rendering for boar warrior strip.
+  ctx.imageSmoothingEnabled = false;
+  // Temporary visibility debug: if this red box appears but sprite does not, image loading/path is wrong.
+  ctx.save();
+  ctx.strokeStyle = 'red';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(drawX, drawY, dw, dh);
+  ctx.restore();
+  if (drawImageFrame(ctx, img, sx, sy, sw, sh, drawX, drawY, dw, dh, !e.facingRight)) {
+    if (state.debug) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(16,10,10,0.95)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(drawX - 0.5, drawY - 0.5, dw + 1, dh + 1);
+      ctx.restore();
+    }
     drawEnemyHPBar(ctx, e);
     return;
   }
@@ -349,9 +376,11 @@ function drawHeavyEnemy(ctx, e, state) {
 
   ctx.fillStyle = body;
   ctx.fillRect(e.x, e.y, e.w, e.h);
-  ctx.strokeStyle = 'rgba(16,10,10,0.95)';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(e.x - 0.5, e.y - 0.5, e.w + 1, e.h + 1);
+  if (state.debug) {
+    ctx.strokeStyle = 'rgba(16,10,10,0.95)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(e.x - 0.5, e.y - 0.5, e.w + 1, e.h + 1);
+  }
 
   // Simple "horned helm" silhouette for quick archetype readability.
   ctx.fillStyle = '#5d4037';
@@ -369,6 +398,27 @@ function drawHeavyEnemy(ctx, e, state) {
     ctx.strokeRect(e.x - 5, e.y - 5, e.w + 10, e.h + 10);
   }
   drawEnemyHPBar(ctx, e);
+}
+
+function resolveBoarWarriorFrameIndex(e, state, frames) {
+  void frames;
+  const tick = state.tick | 0;
+  if (e.state === 'telegraph') {
+    return 2 % 10;
+  }
+  if (e.state === 'charge') {
+    return 6 % 10;
+  }
+  if (e.state === 'recover') {
+    return 8 % 10;
+  }
+  if (e.state === 'hurt') {
+    return 4 % 10;
+  }
+  if (e.state === 'approach') {
+    return Math.floor((tick / 4) % 10);
+  }
+  return Math.floor((tick / 8) % 10);
 }
 
 /**

@@ -42,6 +42,16 @@ export const BRUTE_SHEET = {
   dest:   { w: Math.round(HEAVY_W * HEAVY_RENDER_SCALE), h: Math.round(HEAVY_H * HEAVY_RENDER_SCALE) },
 };
 
+// Dedicated boar warrior runtime sampling contract.
+// Source: 640x64 strip => 10 frames of 64x64 in row 0.
+export const BOAR_WARRIOR_SPRITE = {
+  frameW: 64,
+  frameH: 64,
+  frames: 10,
+  row: 0,
+  scale: 3,
+};
+
 /**
  * Minimum texture size (px) for a strip that matches `PLAYER_ANIM` / `SLIME_ANIM`.
  * Row `r` starts at y = r * frameH; frame `f` in that row at x = f * frameW (no inter-row padding).

@@ -32,6 +32,7 @@ import {
 } from '../config/Constants.js';
 import { drawParallaxStack, drawScreenBase } from '../render/backgroundLayers.js';
 import { drawPlayer, drawEnemies } from '../render/entityRender.js';
+import { markAssetLoaded, markAssetMissing } from '../assets/assetContract.js';
 
 /** @type {HTMLImageElement | null | undefined} */
 let _groundTile = undefined;
@@ -39,10 +40,17 @@ let _groundTile = undefined;
 export function loadWorldTiles() {
   if (typeof Image === 'undefined') return;
   if (_groundTile !== undefined) return;
+  const path = 'assets/tiles/ground.png';
   const im = new Image();
-  im.onload = () => { _groundTile = im; };
-  im.onerror = () => { _groundTile = null; };
-  im.src = 'assets/tiles/ground.png';
+  im.onload = () => {
+    _groundTile = im;
+    markAssetLoaded(path, `image ${im.naturalWidth}x${im.naturalHeight}px`);
+  };
+  im.onerror = () => {
+    _groundTile = null;
+    markAssetMissing(path, 'failed to load tile image');
+  };
+  im.src = path;
   _groundTile = null;
 }
 

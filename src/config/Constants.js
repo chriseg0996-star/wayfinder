@@ -47,7 +47,7 @@ export const PLAYER_AIR_DRAG      = 550;  // px/s² toward 0 when no air input
 export const PLAYER_W         = 28;
 export const PLAYER_H         = 48;
 /** Render-only scale on player sprite draw size (physics/hitbox stay on PLAYER_W/H). */
-export const PLAYER_RENDER_SCALE = 1.5; // tune 1.5..2.0
+export const PLAYER_RENDER_SCALE = 2.4; // tune 1.5..2.6
 
 // --- Jump ---
 export const JUMP_FORCE        = 760;  // initial |vy| px/s
@@ -135,7 +135,7 @@ export const PLAYER_HURT_IFRAMES  = 0.58;  // iframes after taking a hit
 export const SLIME_W              = 32;
 export const SLIME_H              = 24;
 /** Render-only scale on slime sprite draw size (physics/hitbox stay on SLIME_W/H). */
-export const SLIME_RENDER_SCALE   = 1.15;
+export const SLIME_RENDER_SCALE   = 1.55;
 export const SLIME_MAX_HP         = 30;
 export const SLIME_PATROL_SPEED   = 60;
 export const SLIME_CHASE_SPEED    = 130;
@@ -163,7 +163,7 @@ export const SLIME_LOSE_CHASE_MULT = 1.38;
 export const RANGED_W               = 24;
 export const RANGED_H               = 40;
 /** Render-only scale on ranged sprite draw size (physics/hitbox stay on RANGED_W/H). */
-export const RANGED_RENDER_SCALE    = 2.175;
+export const RANGED_RENDER_SCALE    = 2.45;
 /** Render-only positional nudge for ranged sprite anchoring. */
 export const RANGED_SPRITE_OFFSET_X = 0;
 export const RANGED_SPRITE_OFFSET_Y = 2;
@@ -184,7 +184,7 @@ export const RANGED_PROJECTILE_DAMAGE = 7;
 export const HEAVY_W                = 40;
 export const HEAVY_H                = 52;
 /** Render-only scale on heavy sprite draw size (physics/hitbox stay on HEAVY_W/H). */
-export const HEAVY_RENDER_SCALE     = 2.0;
+export const HEAVY_RENDER_SCALE     = 2.15;
 /** Render-only positional nudge for heavy sprite anchoring. */
 export const HEAVY_SPRITE_OFFSET_X  = 0;
 export const HEAVY_SPRITE_OFFSET_Y  = 2;
